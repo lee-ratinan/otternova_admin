@@ -76,7 +76,7 @@
 --------------------------------------------------------------*/
 :root {
   /* Core palette */
-  --background-color: #f4a7ab;
+  --background-color: #f4cfab;
   --default-color: #1c2635;
   --heading-color: #994202;
   --accent-color: #c97232;
@@ -181,7 +181,7 @@
   --sidebar-active-bg: rgba(34, 211, 206, 0.2);
   --sidebar-active-color: #ffffff;
   /* Cards */
-  --card-bg: #11222c;
+  --card-bg: #431100;
   --card-shadow: 0 14px 36px -20px rgb(0 0 0 / 0.75), 0 8px 16px -12px rgb(6 14 21 / 0.82);
   --card-border: var(--border-color);
   /* Tables */
@@ -33879,10 +33879,6 @@ textarea.form-control {
 
 /* Keep logo white in dark mode */
 [data-theme=dark] .sidebar-logo-icon img {
-  filter: brightness(0) invert(1);
-}
-
-[data-theme=dark] .header-logo img {
   filter: brightness(0) invert(1);
 }
 
