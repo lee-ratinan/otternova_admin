@@ -1,0 +1,224 @@
+/*--------------------------------------------------------------
+# Notifications Page - FlexAdmin
+--------------------------------------------------------------*/
+
+.page-notifications {
+
+  .notif-channel-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .notif-channel-card {
+    border-radius: var(--radius-lg);
+  }
+
+  .notif-channel-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+
+  .notif-channel-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    &.success {
+      background: var(--success-color-light);
+      color: var(--success-color);
+    }
+
+    &.info {
+      background: var(--info-color-light);
+      color: var(--info-color);
+    }
+
+    &.warning {
+      background: var(--warning-color-light);
+      color: var(--warning-color);
+    }
+  }
+
+  .notif-channel-title {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--heading-color);
+    font-weight: 700;
+  }
+
+  .notif-channel-desc {
+    margin: 1px 0 0;
+    font-size: 0.72rem;
+    color: var(--muted-color);
+  }
+
+  .notif-rule-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .notif-rule-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 11px;
+    border: 1px solid var(--border-color-light);
+    border-radius: var(--radius-md);
+    background: var(--surface-color);
+  }
+
+  .notif-rule-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .notif-rule-title {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--heading-color);
+    font-weight: 700;
+  }
+
+  .notif-rule-desc {
+    display: block;
+    margin-top: 1px;
+    font-size: 0.72rem;
+    color: var(--muted-color);
+  }
+
+  .notif-rule-priority {
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 3px 7px;
+    border-radius: var(--radius-full);
+    white-space: nowrap;
+
+    &.high {
+      color: var(--danger-color);
+      background: var(--danger-color-light);
+    }
+
+    &.medium {
+      color: var(--warning-color);
+      background: var(--warning-color-light);
+    }
+
+    &.low {
+      color: var(--info-color);
+      background: var(--info-color-light);
+    }
+  }
+
+  .notif-stream-card {
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+  }
+
+  .notif-stream-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .notif-stream-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-color-light);
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &.unread {
+      background: color-mix(in srgb, var(--accent-color), transparent 96%);
+    }
+  }
+
+  .notif-stream-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: var(--radius-full);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    &.success {
+      color: var(--success-color);
+      background: var(--success-color-light);
+    }
+
+    &.warning {
+      color: var(--warning-color);
+      background: var(--warning-color-light);
+    }
+
+    &.info {
+      color: var(--info-color);
+      background: var(--info-color-light);
+    }
+
+    &.accent {
+      color: var(--accent-color);
+      background: color-mix(in srgb, var(--accent-color), transparent 88%);
+    }
+  }
+
+  .notif-stream-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .notif-stream-title {
+    font-size: 0.82rem;
+    color: var(--heading-color);
+    font-weight: 700;
+  }
+
+  .notif-stream-text {
+    margin-top: 1px;
+    font-size: 0.74rem;
+    color: var(--muted-color);
+  }
+
+  .notif-stream-meta {
+    font-size: 0.71rem;
+    color: var(--muted-color);
+    white-space: nowrap;
+    margin-top: 3px;
+  }
+}
+
+@media (max-width: 1199px) {
+  .page-notifications {
+    .notif-channel-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+}
+
+@media (max-width: 767px) {
+  .page-notifications {
+    .notif-rule-item {
+      flex-wrap: wrap;
+    }
+
+    .notif-stream-item {
+      flex-wrap: wrap;
+    }
+
+    .notif-stream-meta {
+      margin-left: 44px;
+    }
+  }
+}
