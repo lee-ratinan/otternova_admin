@@ -10,6 +10,8 @@ $routes->group('admin', [], static function($routes) {
     $routes->get('dashboard', 'Admin::dashboard');
     $routes->get('notifications', 'Admin::notifications');
     $routes->get('profile', 'Admin::profile');
+    $routes->get('profile/edit', 'Admin::profileEdit');
+    $routes->get('public-profile/(:any)', 'Admin::publicProfile/$1');
     $routes->get('inbox', 'Admin::inbox');
     // Our own users
     $routes->get('otternauts', 'Admin::otternauts');
