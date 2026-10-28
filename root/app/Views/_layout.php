@@ -209,6 +209,10 @@
             <!-- INBOX -->
             <li class="nav-heading"><span>Inbox</span></li>
             <li class="nav-item"><a class="nav-link <?= ('inbox' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/inbox') ?>"><span class="nav-icon"><i class="bi bi-inbox"></i></span><span class="nav-text">Inbox</span></a></li>
+            <!-- FINANCE -->
+            <li class="nav-heading"><span>Finance</span></li>
+            <li class="nav-item"><a class="nav-link <?= ('finance-ledger' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/finance/ledger') ?>"><span class="nav-icon"><i class="bi bi-list-columns"></i></span><span class="nav-text">Ledger</span></a></li>
+            <li class="nav-item"><a class="nav-link <?= ('finance-ledger' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/finance/report') ?>"><span class="nav-icon"><i class="bi bi-graph-up-arrow"></i></span><span class="nav-text">Report</span></a></li>
             <!-- LOGS -->
             <li class="nav-heading"><span>Maintenance</span></li>
             <li class="nav-item"><a class="nav-link <?= ('logs-error' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/logs/errors') ?>"><span class="nav-icon"><i class="bi bi-bug"></i></span><span class="nav-text">Error Logs</span></a></li>

@@ -3475,10 +3475,6 @@ button {
   z-index: 1;
 }
 
-.fauth-visual .fauth-logo img {
-  filter: brightness(0) invert(1);
-}
-
 .fauth-logo-center {
   display: flex;
   justify-content: center;
