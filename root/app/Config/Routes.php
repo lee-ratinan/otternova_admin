@@ -9,8 +9,8 @@ $routes->group('admin', [], static function($routes) {
     // Admin Controller
     $routes->get('dashboard', 'Admin::dashboard');
     $routes->get('notifications', 'Admin::notifications');
-    $routes->get('profile', 'Admin::profile');
-    $routes->get('profile/edit', 'Admin::profileEdit');
+    $routes->get('profile', 'Admin::profile/view');
+    $routes->get('profile/edit', 'Admin::profile/edit');
     $routes->get('public-profile/(:any)', 'Admin::publicProfile/$1');
     $routes->get('inbox', 'Admin::inbox');
     // Our own users
@@ -29,6 +29,5 @@ $routes->group('admin', [], static function($routes) {
     $routes->get('logs/emails', 'Logs::emails');
     // Settings Controller
     $routes->get('settings/languages', 'Settings::languages');
-    $routes->get('settings/currencies', 'Settings::currencies');
     $routes->get('settings/countries', 'Settings::countries');
 });
