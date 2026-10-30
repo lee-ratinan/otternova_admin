@@ -33,15 +33,103 @@ class Admin extends BaseController
 
     /**
      * Profile page
+     * @param string $mode
      * @return string
      */
-    public function profile(): string
+    public function profile(string $mode): string
     {
+        $mode = (empty($mode)) ? 'view' : $mode;
+        $id   = 1; // user id
+        $values = [
+            'id' => $id, 'name' => 'Ergonomic chair', 'sku' => 'CH-001', 'category_id' => 3, 'price' => '249.90',
+            'release_date' => '2026-03-15', 'color' => '#198754', 'tags' => ['new', 'eco'], 'status' => 'P',
+            'is_active' => 1, 'notes' => "Line one\nLine two", 'internal_ref' => 'REF-77',
+        ];
         $data = [
             'page_title' => 'Profile',
             'slug'       => 'profile',
+            'mode'       => $mode,
+            'formConfig' => [
+                'form_id'  => 'product-form',
+                'title'    => ['create' => 'New Product', 'edit' => 'Edit Product', 'view' => 'Product Details'][$mode],
+                'subtitle' => 'Fields marked with * are required',
+                'mode'     => $mode,
+                'id'       => $id,
+                'method'   => 'POST',
+                'urls'     => [
+                    'submit' => site_url('formexample/save'),
+                    'delete' => site_url('formexample/delete'),
+                    'edit'   => site_url('formexample/edit/' . $id),
+                    'list'   => site_url('formexample'),
+                ],
+                'values'   => $values,
+                'fields' => [
+                    ['type' => 'heading', 'label' => 'General'],
+                    [
+                        'name' => 'name', 'type' => 'text', 'label' => 'Product name',
+                        'placeholder' => 'e.g. Ergonomic chair', 'help' => '3-80 characters',
+                        'rules' => 'required|min_length[3]|max_length[80]',
+                    ],
+                    [
+                        'name' => 'sku', 'type' => 'text', 'label' => 'SKU', 'badge' => 'New',
+                        'readonly_in' => ['edit'],                       // editable on create only
+                        'rules' => 'required|alpha_dash|max_length[20]',
+                        'messages' => ['alpha_dash' => 'SKU may only contain letters, digits, - and _.'],
+                    ],
+                    [
+                        'name' => 'category_id', 'type' => 'select', 'label' => 'Category',
+                        'options' => [1 => 'Electronics', 2 => 'Books', 3 => 'Home & Garden'],   // value => label
+                        'attrs' => ['placeholder' => 'Choose a category'], 'rules' => 'required',
+                    ],
+                    [
+                        'name' => 'price', 'type' => 'number', 'label' => 'Price',
+                        'attrs' => ['min' => 0, 'max' => 99999, 'step' => '0.01', 'required' => true],
+                        'help' => 'Two decimals max',
+                    ],
+                    [
+                        'name' => 'release_date', 'type' => 'date', 'label' => 'Release date', 'optional' => true,
+                    ],
+                    [
+                        'name' => 'color', 'type' => 'color', 'label' => 'Brand colour', 'optional' => true,
+                        'default' => '#0d6efd',
+                    ],
+                    ['type' => 'divider'],
+                    ['type' => 'heading', 'label' => 'Options'],
+                    [
+                        'name' => 'tags', 'type' => 'checkbox', 'label' => 'Tags', 'inline' => true,
+                        'options' => ['new' => 'New arrival', 'sale' => 'On sale', 'eco' => 'Eco friendly'],
+                        'rules' => 'required', 'messages' => ['required' => 'Pick at least one tag.'],
+                    ],
+                    [
+                        'name' => 'status', 'type' => 'radio', 'label' => 'Status', 'default' => 'D',
+                        'options' => [['value' => 'D', 'label' => 'Draft'], ['value' => 'P', 'label' => 'Published'], ['value' => 'A', 'label' => 'Archived', 'disabled' => true]],
+                        'rules' => 'required',
+                    ],
+                    [
+                        'name' => 'is_active', 'type' => 'switch', 'label' => 'Active', 'default' => 1,
+                        'view_labels' => ['on' => 'Active', 'off' => 'Inactive'],
+                    ],
+                    [
+                        'name' => 'notes', 'type' => 'textarea', 'label' => 'Notes', 'optional' => true,
+                        'attrs' => ['rows' => 4, 'maxlength' => 500],
+                    ],
+                    ['name' => 'internal_ref', 'type' => 'text', 'label' => 'Internal ref', 'attrs' => ['disabled' => true], 'show_in' => ['edit', 'view']],
+                ],
+            ],
+            'values' => [
+                'full_name'      => 'Nat Lee',
+                'email'          => 'nat@example.com',
+                'salary'         => '8500.00',
+                'description'    => 'Software engineering and technical leadership.',
+                'department'     => 'eng',
+                'is_active'      => 'Y',
+                'theme'          => 'dark',
+                'interests'      => ['tech', 'art'],
+                'rating'         => 8,
+                'favorite_color' => '#336699',
+            ],
         ];
-        return view('admin_profile', $data);
+        return view('generic_form', $data);
     }
 
     /**
@@ -93,6 +181,37 @@ class Admin extends BaseController
         $data = [
             'page_title' => 'Oternauts',
             'slug'       => 'otternauts',
+            'listConfig' => [
+                'table_id' => 'mainDataTables',
+                'title'    => 'Products',
+                'subtitle' => 'All products in the catalogue',
+                'ajax_url' => site_url('listexample/data'),
+                'row_id'   => 'id',
+                // Leave 'url' empty (or omit 'add') to hide the button, e.g. for users without permission.
+                'add'  => ['url' => site_url('formexample/create'), 'label' => 'Add Product'],
+                'edit' => ['url' => site_url('formexample/edit/{id}')],   // {id} is replaced per row by lb_rows()
+                'columns' => [
+                    ['data' => 'sku', 'title' => 'SKU', 'db' => 'p.sku'],
+                    ['data' => 'name', 'title' => 'Name', 'db' => 'p.name'],
+                    ['data' => 'category', 'title' => 'Category', 'db' => 'c.name'],
+                    ['data' => 'price', 'title' => 'Price', 'db' => 'p.price', 'type' => 'number', 'decimals' => 2, 'class' => 'text-end'],
+                    ['data' => 'status', 'title' => 'Status', 'db' => 'p.status', 'type' => 'badge', 'badges' => [
+                        'D' => ['label' => 'Draft', 'class' => 'bg-secondary'],
+                        'P' => ['label' => 'Published', 'class' => 'bg-success'],
+                        'A' => ['label' => 'Archived', 'class' => 'bg-dark'],
+                    ]],
+                    ['data' => 'is_active', 'title' => 'Active', 'db' => 'p.is_active', 'type' => 'boolean', 'searchable' => false],
+                    ['data' => 'created_at', 'title' => 'Created', 'db' => 'p.created_at', 'searchable' => false],
+                ],
+                'filters' => [
+                    ['name' => 'status', 'type' => 'select', 'label' => 'Status', 'column' => 'p.status',
+                     'options' => ['D' => 'Draft', 'P' => 'Published', 'A' => 'Archived']],
+                    ['name' => 'from', 'type' => 'date', 'label' => 'Created from', 'column' => 'p.created_at', 'operator' => '>='],
+                    ['name' => 'to', 'type' => 'date', 'label' => 'Created to', 'column' => 'p.created_at', 'operator' => '<='],
+                ],
+                'order'       => [['created_at', 'desc']],
+                'page_length' => 25,
+            ]
         ];
         return view('generic_list', $data);
     }
