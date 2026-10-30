@@ -66,3 +66,30 @@ if (!function_exists('formatPhoneNumber')) {
         return $e164Number;
     }
 }
+
+if (!function_exists('formatDate')) {
+    /**
+     * Format date according to the locale
+     * @param $date
+     * @param $locale
+     * @return false|string
+     */
+    function formatDate($date, $locale): false|string
+    {
+        $time = strtotime($date);
+        if (!$time) {
+            return false;
+        }
+        $d = date('j', $time);
+        $m = date('n', $time);
+        $y = date('Y', $time);
+        if ('th' == $locale) {
+            $y += 543;
+            $mon = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+            $m = $mon[$m - 1];
+            return "$d $m $y";
+        }
+        // Default: en-US
+        return date('M j, Y', $time);
+    }
+}

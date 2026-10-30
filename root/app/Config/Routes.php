@@ -6,8 +6,17 @@ use CodeIgniter\Router\RouteCollection;
 $routes->get('/', 'Home::index');
 
 $routes->group('admin', [], static function($routes) {
-    // Admin Controller
+    // Dashboard
     $routes->get('dashboard', 'Admin::dashboard');
+    // Users
+    $routes->get('accounts', 'Admin::accounts');
+    $routes->post('accounts', 'Admin::accountsList');
+    $routes->get('accounts/edit/(:any)', 'Admin::accountsEdit/$1');
+
+
+
+
+
     $routes->get('notifications', 'Admin::notifications');
     $routes->get('profile', 'Admin::profile/view');
     $routes->get('profile/edit', 'Admin::profile/edit');

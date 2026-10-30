@@ -84,3 +84,4 @@ defined('EXIT__AUTO_MAX')      || define('EXIT__AUTO_MAX', 125);    // highest a
 define('SITE_TITLE', 'OtterNova Admin');
 define('META_DESCRIPTION', 'Admin portal for OtterNova staff');
 define('META_KEYWORDS', 'admin portal, backoffice, OtterNova');
+define('LOCALE', 'en-US');

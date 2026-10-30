@@ -2,6 +2,9 @@
 
 namespace App\Controllers;
 
+use App\Models\AuthMasterModel;
+use CodeIgniter\HTTP\ResponseInterface;
+
 class Admin extends BaseController
 {
 
@@ -16,6 +19,95 @@ class Admin extends BaseController
             'slug'       => 'dashboard',
         ];
         return view('admin_dashboard', $data);
+    }
+
+    public function accounts(): string
+    {
+        $authModel = new AuthMasterModel();
+        $columns   = $authModel->getListViewConfiguration();
+        unset($columns['uid']);
+        unset($columns['password_hash']);
+        unset($columns['admin_notes']);
+        $data      = [
+            'page_title' => 'Account',
+            'slug'       => 'accounts',
+            'listConfig' => [
+                'table_id'    => 'accountTable',
+                'title'       => 'All User Accounts',
+                'subtitle'    => 'This table includes staff and client accounts',
+                'ajax_url'    => base_url('admin/accounts'),
+                'row_id'      => 'uid',
+                'add'         => ['url' => base_url('admin/accounts/edit/create'), 'label' => 'Add Account'],
+                'edit'        => ['url' => base_url('admin/accounts/edit/{uid}')],
+                'columns'     => $columns,
+                'filters'     => [
+                    [
+                        'name'    => 'otp_mode',
+                        'type'    => 'select',
+                        'label'   => lang('AuthMaster.fields.otp_mode'),
+                        'column'  => 'p.otp_mode',
+                        'options' => [
+                            'E' => lang('AuthMaster.enum.otp_mode.E'),
+                            'T' => lang('AuthMaster.enum.otp_mode.T'),
+                            'X' => lang('AuthMaster.enum.otp_mode.X')
+                        ]
+                    ],
+                    [
+                        'name'    => 'account_status',
+                        'type'    => 'select',
+                        'label'   => lang('AuthMaster.fields.account_status'),
+                        'column'  => 'p.account_status',
+                        'options' => [
+                            'P' => lang('AuthMaster.enum.account_status.P'),
+                            'A' => lang('AuthMaster.enum.account_status.A'),
+                            'B' => lang('AuthMaster.enum.account_status.B'),
+                            'S' => lang('AuthMaster.enum.account_status.S'),
+                        ]
+                    ],
+                    [
+                        'name'    => 'account_type',
+                        'type'    => 'select',
+                        'label'   => lang('AuthMaster.fields.account_type'),
+                        'column'  => 'p.account_type',
+                        'options' => [
+                            'S' => lang('AuthMaster.enum.account_type.S'),
+                            'C' => lang('AuthMaster.enum.account_type.C'),
+                        ]
+                    ]
+                ],
+                'order'       => [['email_address', 'asc']],
+                'page_length' => 25,
+            ]
+        ];
+        return view('generic_list', $data);
+    }
+
+    /**
+     * List accounts accordingly
+     * @return ResponseInterface
+     */
+    public function accountsList(): ResponseInterface
+    {
+        $data = [
+            ['edit_url' => base_url('admin/accounts/edit/eikinotternovacom'), 'password_expiry' => '2027-11-15', 'email_address' => 'eikin@otternova.com', 'telephone_number' => '+6597754577', 'otp_mode' => 'E', 'account_status' => 'A', 'account_type' => 'S'],
+            ['edit_url' => base_url('admin/accounts/edit/fauziotternovacom'), 'password_expiry' => '2027-11-15', 'email_address' => 'fauzi@otternova.com', 'telephone_number' => '+6285658201275', 'otp_mode' => 'E', 'account_status' => 'A', 'account_type' => 'S'],
+            ['edit_url' => base_url('admin/accounts/edit/jateotternovacom'), 'password_expiry' => '2xx5', 'email_address' => 'jate@otternova.com', 'telephone_number' => '+66897828331', 'otp_mode' => 'E', 'account_status' => 'P', 'account_type' => 'S'],
+            ['edit_url' => base_url('admin/accounts/edit/harrypotterhogwartsedu'), 'password_expiry' => '2027-11-15', 'email_address' => 'harry.potter@hogwarts.edu', 'telephone_number' => '+447700900000', 'otp_mode' => 'E', 'account_status' => 'A', 'account_type' => 'C'],
+            ['edit_url' => base_url('admin/accounts/edit/ronweasleyhogwartsedu'), 'password_expiry' => '2027-11-15', 'email_address' => 'ron.weasley@hogwarts.edu', 'telephone_number' => '+447700900001', 'otp_mode' => 'E', 'account_status' => 'B', 'account_type' => 'C'],
+            ['edit_url' => base_url('admin/accounts/edit/hermionegrangerhogwartsedu'), 'password_expiry' => '2027-11-15', 'email_address' => 'hermione.granger@hogwarts.edu', 'telephone_number' => '+447700900002', 'otp_mode' => 'T', 'account_status' => 'A', 'account_type' => 'C'],
+            ['edit_url' => base_url('admin/accounts/edit/dracomalfoyhogwartsedu'), 'password_expiry' => '2027-11-15', 'email_address' => 'draco.malfoy@hogwarts.edu', 'telephone_number' => '+447700900003', 'otp_mode' => 'X', 'account_status' => 'S', 'account_type' => 'C'],
+        ];
+        $data = array_map(static function (array $row): array {
+            $row['telephone_number'] = formatPhoneNumber($row['telephone_number']);
+            $row['password_expiry'] = formatDate($row['password_expiry'], LOCALE);
+            return $row;
+        }, $data);
+        return $this->response->setJSON([
+            'draw'            => $this->request->getPost('draw'),
+            'recordsTotal'    => count($data),
+            'recordsFiltered' => count($data),
+            'data'            => $data
+        ]);
     }
 
     /**
@@ -194,13 +286,19 @@ class Admin extends BaseController
                     ['data' => 'sku', 'title' => 'SKU', 'db' => 'p.sku'],
                     ['data' => 'name', 'title' => 'Name', 'db' => 'p.name'],
                     ['data' => 'category', 'title' => 'Category', 'db' => 'c.name'],
-                    ['data' => 'price', 'title' => 'Price', 'db' => 'p.price', 'type' => 'number', 'decimals' => 2, 'class' => 'text-end'],
-                    ['data' => 'status', 'title' => 'Status', 'db' => 'p.status', 'type' => 'badge', 'badges' => [
+                    ['data'  => 'price', 'title' => 'Price', 'db' => 'p.price', 'type' => 'number', 'decimals' => 2,
+                     'class' => 'text-end'
+                    ],
+                    [
+                        'data' => 'status', 'title' => 'Status', 'db' => 'p.status', 'type' => 'badge', 'badges' => [
                         'D' => ['label' => 'Draft', 'class' => 'bg-secondary'],
                         'P' => ['label' => 'Published', 'class' => 'bg-success'],
                         'A' => ['label' => 'Archived', 'class' => 'bg-dark'],
-                    ]],
-                    ['data' => 'is_active', 'title' => 'Active', 'db' => 'p.is_active', 'type' => 'boolean', 'searchable' => false],
+                    ]
+                    ],
+                    ['data'       => 'is_active', 'title' => 'Active', 'db' => 'p.is_active', 'type' => 'boolean',
+                     'searchable' => false
+                    ],
                     ['data' => 'created_at', 'title' => 'Created', 'db' => 'p.created_at', 'searchable' => false],
                 ],
                 'filters' => [
