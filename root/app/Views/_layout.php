@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <?php
+    $page_title = $page_title ?? '[UNTITLED PAGE TITLE]';
+    ?>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $page_title . ' | ' . SITE_TITLE ?></title>
@@ -22,6 +25,7 @@
     <link href="<?= base_url('assets/vendor/quill/quill.bubble.css') ?>" rel="stylesheet">
     <link href="<?= base_url('assets/vendor/choices.js/choices.min.css') ?>" rel="stylesheet">
     <link href="<?= base_url('assets/vendor/flatpickr/flatpickr.min.css') ?>" rel="stylesheet">
+    <link href="<?= base_url('assets/vendor/toastr/toastr.min.css') ?>" rel="stylesheet">
     <!-- Template Main CSS File -->
     <link href="<?= base_url('assets/css/main.css') ?>" rel="stylesheet">
     <!-- =======================================================
@@ -221,7 +225,6 @@
             <li class="nav-heading"><span>Settings</span></li>
             <li class="nav-item"><a class="nav-link <?= ('settings-languages' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/settings/languages') ?>"><span class="nav-icon"><i class="bi bi-translate"></i></span><span class="nav-text">Languages</span></a></li>
             <li class="nav-item"><a class="nav-link <?= ('settings-countries' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/settings/countries') ?>"><span class="nav-icon"><i class="bi bi-geo"></i></span><span class="nav-text">Countries</span></a></li>
-            <li class="nav-item"><a class="nav-link <?= ('settings-currencies' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/settings/currencies') ?>"><span class="nav-icon"><i class="bi bi-cash-coin"></i></span><span class="nav-text">Currencies</span></a></li>
         </ul>
     </nav>
     <div class="sidebar-footer">
@@ -246,7 +249,24 @@
 </aside>
 <div class="sidebar-overlay"></div>
 <main class="main">
-    <?= $this->renderSection('content') ?>
+    <div class="main-content page-tables-datatables">
+        <div class="page-header">
+            <h1 class="page-title"><?= $page_title ?></h1>
+            <nav class="breadcrumb">
+                <a href="<?= base_url('admin/dashboard') ?>" class="breadcrumb-item">Dashboard</a>
+                <?php if (isset($breadcrumbs)) : ?>
+                    <?php foreach ($breadcrumbs as $key => $value): ?>
+                        <a href="<?= $key ?>" class="breadcrumb-item">&nbsp; <?= $value ?></a>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+                <?php if ('dashboard' != $slug) : ?>
+                    <span class="breadcrumb-item active">&nbsp; <?= $page_title ?></span>
+                <?php endif; ?>
+            </nav>
+        </div>
+        <!-- PAGE CONTENTS GO HERE -->
+        <?= $this->renderSection('content') ?>
+    </div>
     <footer class="footer">
         <div class="footer-content">
             <div class="footer-credits">
@@ -261,6 +281,7 @@
     <i class="bi bi-arrow-up"></i>
 </a>
 <!-- JS Files -->
+<script src="<?= base_url('assets/vendor/jquery/jquery-4.0.0.min.js') ?>"></script>
 <script src="<?= base_url('assets/vendor/bootstrap/js/bootstrap.bundle.min.js') ?>"></script>
 <script src="<?= base_url('assets/vendor/apexcharts/apexcharts.min.js') ?>"></script>
 <script src="<?= base_url('assets/vendor/chart.js/chart.umd.js') ?>"></script>
@@ -271,6 +292,8 @@
 <script src="<?= base_url('assets/vendor/choices.js/choices.min.js') ?>"></script>
 <script src="<?= base_url('assets/vendor/flatpickr/flatpickr.min.js') ?>"></script>
 <script src="<?= base_url('assets/vendor/php-email-form/validate.js') ?>"></script>
+<script src="<?= base_url('assets/vendor/toastr/toastr.min.js') ?>"></script>
+<script src="<?= base_url('assets/vendor/sweetalert/sweetalert2.min.js') ?>"></script>
 <script src="<?= base_url('assets/js/theme.js') ?>"></script>
 <script src="<?= base_url('assets/js/main.js') ?>"></script>
 <script src="<?= base_url('assets/js/apps-sidebar-toggle.js') ?>"></script>

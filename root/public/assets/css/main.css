@@ -6916,7 +6916,7 @@ textarea.form-control {
 }
 
 .toast-message {
-  color: var(--muted-color);
+  color: #fff;
 }
 
 .toast-time {
@@ -6952,11 +6952,6 @@ textarea.form-control {
 .toast-solid-success .toast-header {
   background-color: transparent;
   border-bottom-color: rgba(255, 255, 255, 0.2);
-  color: var(--contrast-color);
-}
-
-.toast-solid-success .toast-title,
-.toast-solid-success .toast-message {
   color: var(--contrast-color);
 }
 
@@ -34258,3 +34253,9 @@ textarea.form-control {
   margin-top: 3px;
   font-size: 1rem;
 }
+
+/* TOASTR */
+#toast-container > .toast-success { background-color: #51a351 !important; }
+#toast-container > .toast-error   { background-color: #bd362f !important; }
+#toast-container > .toast-info    { background-color: #2f96b4 !important; }
+#toast-container > .toast-warning { background-color: #f89406 !important; }
