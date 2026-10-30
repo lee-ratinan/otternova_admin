@@ -52,14 +52,14 @@
                                 <td>
                                     <?php if (isset($timezones[$countryCode])): ?>
                                         <?php foreach ($timezones[$countryCode] as $timezoneKey => $timezoneValue): ?>
-                                            <code><?= $timezoneKey ?></code> <?= $timezoneValue ?><br/>
+                                            <code><?= $timezoneKey ?></code><br/><?= $timezoneValue ?><br/>
                                         <?php endforeach; ?>
                                     <?php endif; ?>
                                 </td>
                                 <td>
                                     <?php if (isset($currencies[$countryCode])): ?>
                                         <?php foreach ($currencies[$countryCode] as $currencyKey): ?>
-                                            <code><?= $currencyKey ?></code> <?= mapCurrencyCode($currencyKey) ?><br/>
+                                            <code><?= $currencyKey ?></code><br/><?= mapCurrencyCode($currencyKey) ?><br/>
                                         <?php endforeach; ?>
                                     <?php endif; ?>
                                 </td>
