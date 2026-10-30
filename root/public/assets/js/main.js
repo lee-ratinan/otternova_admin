@@ -413,3 +413,47 @@
   });
 
 })();
+function initContentCollapse(selector = '.content-collapse') {
+  document.querySelectorAll(selector).forEach(function (element) {
+
+    // Avoid processing the same element twice
+    if (element.dataset.collapseInitialized) return;
+
+    element.dataset.collapseInitialized = 'true';
+
+    // Check whether content exceeds 3 lines
+    const lineHeight = parseFloat(getComputedStyle(element).lineHeight);
+    const maxHeight = lineHeight * 3;
+
+    if (element.scrollHeight <= maxHeight + 1) return;
+
+    // Create toggle button
+    const button = document.createElement('i');
+    button.className = 'bi bi-three-dots content-toggle';
+    button.setAttribute('role', 'button');
+    button.setAttribute('aria-label', 'Show more');
+    button.setAttribute('title', 'Show more');
+
+    button.addEventListener('click', function () {
+      const expanded = element.classList.toggle('expanded');
+
+      button.classList.toggle('bi-three-dots', !expanded);
+      button.classList.toggle('bi-three-dots-vertical', expanded);
+
+      button.setAttribute(
+          'aria-label',
+          expanded ? 'Show less' : 'Show more'
+      );
+
+      button.setAttribute(
+          'title',
+          expanded ? 'Show less' : 'Show more'
+      );
+    });
+
+    element.insertAdjacentElement('afterend', button);
+  });
+}
+document.addEventListener('DOMContentLoaded', function () {
+  initContentCollapse();
+});

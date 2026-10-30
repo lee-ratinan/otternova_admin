@@ -1220,7 +1220,7 @@ button {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: var(--spacing-md);
-  padding: var(--spacing-md) 0;
+  padding: var(--spacing-md) var(--spacing-md);
 }
 
 .datatable-wrapper .datatable-search {
@@ -5565,7 +5565,7 @@ textarea.form-control {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: var(--spacing-md);
-  padding: var(--spacing-md) 0;
+  padding: var(--spacing-md) var(--spacing-md);
 }
 
 .datatable-search {
@@ -34236,4 +34236,24 @@ textarea.form-control {
   .no-print {
     display: block;
   }
+}
+
+.content-collapse {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+}
+
+.content-collapse.expanded {
+  display: block;
+  -webkit-line-clamp: unset;
+}
+
+.content-toggle {
+  display: inline-block;
+  cursor: pointer;
+  color: #6c757d;
+  margin-top: 3px;
+  font-size: 1.2rem;
 }
