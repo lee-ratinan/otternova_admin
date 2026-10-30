@@ -7,10 +7,10 @@ $routes->get('/', 'Home::index');
 
 $routes->group('admin', [], static function($routes) {
     // Dashboard
-    $routes->get('dashboard', 'Admin::dashboard');
+    $routes->get('dashboard', 'Admin::dashboard'); // done prototyping
     // Users
-    $routes->get('accounts', 'Admin::accounts');
-    $routes->post('accounts', 'Admin::accountsList');
+    $routes->get('accounts', 'Admin::accounts'); // done prototyping
+    $routes->post('accounts', 'Admin::accountsList'); // done dummy data
     $routes->get('accounts/edit/(:any)', 'Admin::accountsEdit/$1');
 
 
@@ -37,6 +37,7 @@ $routes->group('admin', [], static function($routes) {
     $routes->get('logs/errors', 'Logs::errors');
     $routes->get('logs/emails', 'Logs::emails');
     // Settings Controller
-    $routes->get('settings/languages', 'Settings::languages');
-    $routes->get('settings/countries', 'Settings::countries');
+    $routes->get('settings/languages', 'Settings::languages'); // complete
+    $routes->get('settings/countries', 'Settings::countries'); // complete
+    $routes->get('settings/countries/view/(:alpha)', 'Settings::countriesView/$1');
 });

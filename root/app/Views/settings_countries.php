@@ -12,9 +12,6 @@
                         <button type="button" id="btnSupportedOnly" class="btn btn-sm btn-outline-success">
                             <i class="bi bi-check-circle"></i> Supported only
                         </button>
-                        <button type="button" id="btnShowAll" class="btn btn-sm btn-outline-secondary">
-                            <i class="bi bi-arrow-counterclockwise"></i> Show all
-                        </button>
                     </div>
                     <div class="table-responsive">
                         <table id="mainTable" class="table table-striped table-hover">
@@ -33,9 +30,13 @@
                             <tbody>
                             <?php foreach($allCountries as $countryCode => $countryName): ?>
                             <tr>
-                                <td></td>
+                                <td>
+                                    <?php if (isset($supportedCountries[$countryCode])): ?>
+                                        <a class="btn btn-sm btn-outline-primary" href="<?= base_url('admin/settings/countries/view/' . $countryCode) ?>" title="View"><i class="bi bi-eye"></i></a>
+                                    <?php endif; ?>
+                                </td>
                                 <td><?= $countryCode ?></td>
-                                <td><?= $countryName ?></td>
+                                <td><i class="fi fi-<?= strtolower($countryCode) ?>"></i> <?= $countryName ?></td>
                                 <td>
                                     <?php foreach ($regions as $regionName => $listCountries): ?>
                                         <?php if (in_array($countryCode, $listCountries)): ?>
@@ -97,9 +98,6 @@
             // search() also writes the term into the search box (#dt-search-0)
             document.getElementById('btnSupportedOnly').addEventListener('click', function () {
                 table.search('support').draw();
-            });
-            document.getElementById('btnShowAll').addEventListener('click', function () {
-                table.search('').draw();
             });
         });
     </script>

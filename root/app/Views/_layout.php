@@ -26,6 +26,7 @@
     <link href="<?= base_url('assets/vendor/flatpickr/flatpickr.min.css') ?>" rel="stylesheet">
     <link href="<?= base_url('assets/vendor/toastr/toastr.min.css') ?>" rel="stylesheet">
     <link href="<?= base_url('assets/vendor/datatables/datatables.min.css') ?>" rel="stylesheet">
+    <link href="<?= base_url('assets/vendor/flag-icons/css/flag-icons.min.css') ?>" rel="stylesheet">
     <!-- Template Main CSS File -->
     <link href="<?= base_url('assets/css/main.css') ?>" rel="stylesheet">
     <!-- =======================================================

@@ -8,10 +8,11 @@
                     <p class="card-subtitle">This page lists both supported and unsupported countries. It ignores the sanctioned countries.</p>
                 </div>
                 <div class="card-body p-0">
-                    <?php
-                    $allLanguages       = listLanguages();
-                    $supportedLanguages = listSupportedLanguages();
-                    ?>
+                    <div class="text-end pe-3 pt-3">
+                        <button type="button" id="btnSupportedOnly" class="btn btn-sm btn-outline-success">
+                            <i class="bi bi-check-circle"></i> Supported only
+                        </button>
+                    </div>
                     <div class="table-responsive">
                         <table id="mainTable" class="table table-striped table-hover">
                             <thead>
@@ -44,7 +45,16 @@
     </div>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            new DataTable('#mainTable');
+            const table = new DataTable('#mainTable', {
+                order: [[1, 'asc']],
+                columnDefs: [
+                    { orderable: false, targets: 2 }
+                ]
+            });
+            // search() also writes the term into the search box (#dt-search-0)
+            document.getElementById('btnSupportedOnly').addEventListener('click', function () {
+                table.search('support').draw();
+            });
         });
     </script>
 <?php $this->endSection() ?>
