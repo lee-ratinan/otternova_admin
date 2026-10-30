@@ -25,8 +25,14 @@ class Settings extends BaseController
     public function countries(): string
     {
         $data = [
-            'page_title' => 'Countries',
-            'slug'       => 'settings-countries',
+            'page_title'         => 'Countries',
+            'slug'               => 'settings-countries',
+            'allCountries'       => listCountries(),
+            'supportedCountries' => listSupportedCountries(),
+            'timezones'          => listSupportedTimezones(),
+            'currencies'         => listSupportedCurrencies(),
+            'subdivisions'       => listSupportedSubdivisions(),
+            'regions'            => splitCountryListByRegion(),
         ];
         return view('settings_countries', $data);
     }

@@ -8,18 +8,19 @@
                     <p class="card-subtitle">This page lists both supported and unsupported countries. It ignores the sanctioned countries.</p>
                 </div>
                 <div class="card-body p-0">
-                    <?php
-                    $allCountries       = listCountries();
-                    $supportedCountries = listSupportedCountries();
-                    $timezones          = listSupportedTimezones();
-                    $currencies         = listSupportedCurrencies();
-                    $subdivisions       = listSupportedSubdivisions();
-                    $regions            = splitCountryListByRegion();
-                    ?>
+                    <div class="text-end pe-3 pt-3">
+                        <button type="button" id="btnSupportedOnly" class="btn btn-sm btn-outline-success">
+                            <i class="bi bi-check-circle"></i> Supported only
+                        </button>
+                        <button type="button" id="btnShowAll" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-arrow-counterclockwise"></i> Show all
+                        </button>
+                    </div>
                     <div class="table-responsive">
                         <table id="mainTable" class="table table-striped table-hover">
                             <thead>
                             <tr>
+                                <th></th>
                                 <th>#</th>
                                 <th>Country Name</th>
                                 <th>Region</th>
@@ -32,6 +33,7 @@
                             <tbody>
                             <?php foreach($allCountries as $countryCode => $countryName): ?>
                             <tr>
+                                <td></td>
                                 <td><?= $countryCode ?></td>
                                 <td><?= $countryName ?></td>
                                 <td>
@@ -52,14 +54,14 @@
                                 <td>
                                     <?php if (isset($timezones[$countryCode])): ?>
                                         <?php foreach ($timezones[$countryCode] as $timezoneKey => $timezoneValue): ?>
-                                            <code><?= $timezoneKey ?></code><br/><?= $timezoneValue ?><br/>
+                                            <code><?= $timezoneKey ?></code><br/>
                                         <?php endforeach; ?>
                                     <?php endif; ?>
                                 </td>
                                 <td>
                                     <?php if (isset($currencies[$countryCode])): ?>
                                         <?php foreach ($currencies[$countryCode] as $currencyKey): ?>
-                                            <code><?= $currencyKey ?></code><br/><?= mapCurrencyCode($currencyKey) ?><br/>
+                                            <code><?= $currencyKey ?></code><br/>
                                         <?php endforeach; ?>
                                     <?php endif; ?>
                                 </td>
@@ -67,7 +69,7 @@
                                     <?php if (isset($subdivisions[$countryCode])): ?>
                                         <div class="content-collapse">
                                         <?php foreach ($subdivisions[$countryCode] as $subCode => $subName): ?>
-                                            <code><?= $subCode ?></code><?= $subName ?><br/>
+                                            <?= $subName ?><br/>
                                         <?php endforeach; ?>
                                         </div>
                                     <?php endif; ?>
@@ -83,7 +85,22 @@
     </div>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            new DataTable('#mainTable');
+            const table = new DataTable('#mainTable', {
+                order: [[1, 'asc']],
+                columnDefs: [
+                    { orderable: false, targets: 0 },
+                    { orderable: false, targets: 5 },
+                    { orderable: false, targets: 6 },
+                    { orderable: false, targets: 7 }
+                ]
+            });
+            // search() also writes the term into the search box (#dt-search-0)
+            document.getElementById('btnSupportedOnly').addEventListener('click', function () {
+                table.search('support').draw();
+            });
+            document.getElementById('btnShowAll').addEventListener('click', function () {
+                table.search('').draw();
+            });
         });
     </script>
 <?php $this->endSection() ?>
