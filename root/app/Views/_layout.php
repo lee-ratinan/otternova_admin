@@ -20,12 +20,12 @@
     <link href="<?= base_url('assets/vendor/bootstrap/css/bootstrap.min.css') ?>" rel="stylesheet">
     <link href="<?= base_url('assets/vendor/bootstrap-icons/bootstrap-icons.css') ?>" rel="stylesheet">
     <link href="<?= base_url('assets/vendor/fontawesome-free/css/all.min.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/vendor/simple-datatables/style.css') ?>" rel="stylesheet">
     <link href="<?= base_url('assets/vendor/quill/quill.snow.css') ?>" rel="stylesheet">
     <link href="<?= base_url('assets/vendor/quill/quill.bubble.css') ?>" rel="stylesheet">
     <link href="<?= base_url('assets/vendor/choices.js/choices.min.css') ?>" rel="stylesheet">
     <link href="<?= base_url('assets/vendor/flatpickr/flatpickr.min.css') ?>" rel="stylesheet">
     <link href="<?= base_url('assets/vendor/toastr/toastr.min.css') ?>" rel="stylesheet">
+    <link href="<?= base_url('assets/vendor/datatables/datatables.min.css') ?>" rel="stylesheet">
     <!-- Template Main CSS File -->
     <link href="<?= base_url('assets/css/main.css') ?>" rel="stylesheet">
     <!-- =======================================================
@@ -284,9 +284,9 @@
 <script src="<?= base_url('assets/vendor/jquery/jquery-4.0.0.min.js') ?>"></script>
 <script src="<?= base_url('assets/vendor/bootstrap/js/bootstrap.bundle.min.js') ?>"></script>
 <script src="<?= base_url('assets/vendor/apexcharts/apexcharts.min.js') ?>"></script>
+<script src="<?= base_url('assets/vendor/datatables/datatables.min.js') ?>"></script>
 <script src="<?= base_url('assets/vendor/chart.js/chart.umd.js') ?>"></script>
 <script src="<?= base_url('assets/vendor/echarts/echarts.min.js') ?>"></script>
-<script src="<?= base_url('assets/vendor/simple-datatables/simple-datatables.js') ?>"></script>
 <script src="<?= base_url('assets/vendor/quill/quill.js') ?>"></script>
 <script src="<?= base_url('assets/vendor/tinymce/tinymce.min.js') ?>"></script>
 <script src="<?= base_url('assets/vendor/choices.js/choices.min.js') ?>"></script>

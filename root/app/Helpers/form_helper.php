@@ -1126,7 +1126,7 @@ if (! function_exists('fb_script')) {
   function notify(type, html, title) {
     if (window.toastr && typeof window.toastr[type] === 'function') {
       try {
-        window.toastr[type](html, title || '', { timeOut: 5000, extendedTimeOut: 5000, closeButton: true, progressBar: true, escapeHtml: false });
+        window.toastr[type](html, title || '', { timeOut: 5000, extendedTimeOut: 2000, closeButton: true, progressBar: true, escapeHtml: false });
         return;
       } catch (e) {
         if (window.console) { console.warn('toastr failed (is jQuery loaded before toastr?)', e); }
@@ -1383,18 +1383,9 @@ if (! function_exists('fb_script')) {
     async function confirmDelete() {
       if (window.Swal && typeof window.Swal.fire === 'function') {
         var res = await window.Swal.fire({
-            title: cfg.messages.confirmDelete,
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Delete',
-            buttonsStyling: false,
-            customClass: {
-              popup: 'card',
-              title: 'h5',
-              confirmButton: 'btn btn-danger me-2',
-              cancelButton: 'btn btn-outline-secondary'
-            }
-          });
+          title: cfg.messages.confirmDelete, icon: 'warning', showCancelButton: true,
+          confirmButtonText: 'Delete', confirmButtonColor: '#dc3545'
+        });
         return !!res.isConfirmed;
       }
       return window.confirm(cfg.messages.confirmDelete);
