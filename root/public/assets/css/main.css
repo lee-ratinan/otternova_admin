@@ -34251,9 +34251,10 @@ textarea.form-control {
 }
 
 .content-toggle {
+  pointer-events: auto !important;
   display: inline-block;
   cursor: pointer;
-  color: #6c757d;
+  color: var(--accent-color);
   margin-top: 3px;
-  font-size: 1.2rem;
+  font-size: 1rem;
 }
