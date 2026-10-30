@@ -83,16 +83,7 @@
     </div>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            new simpleDatatables.DataTable('#mainTable', {
-                perPage: 20,
-                perPageSelect: [5, 10, 15, 20, 50, 100],
-                labels: {
-                    placeholder: 'Search...',
-                    perPage: 'entries per page',
-                    noRows: 'No entries found',
-                    info: 'Showing {start} to {end} of {rows} entries'
-                }
-            });
+            new DataTable('#mainTable');
         });
     </script>
 <?php $this->endSection() ?>

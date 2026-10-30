@@ -23,29 +23,10 @@ function initContentCollapse(selector = '.content-collapse') {
     if (element.scrollHeight <= maxHeight + 1) return;
     // Create toggle button
     const button = document.createElement('i');
-    button.className = 'bi bi-three-dots content-toggle';
+    button.className = 'bi bi-chevron-compact-down content-toggle';
     // button.setAttribute('role', 'button');
     button.setAttribute('aria-label', 'Show more');
     button.setAttribute('title', 'Show more');
-
-    // button.addEventListener('click', function () {
-    //   alert('clicked');
-    //   const expanded = element.classList.toggle('expanded');
-    //
-    //   button.classList.toggle('bi-three-dots', !expanded);
-    //   button.classList.toggle('bi-three-dots-vertical', expanded);
-    //
-    //   button.setAttribute(
-    //       'aria-label',
-    //       expanded ? 'Show less' : 'Show more'
-    //   );
-    //
-    //   button.setAttribute(
-    //       'title',
-    //       expanded ? 'Show less' : 'Show more'
-    //   );
-    // });
-
     element.insertAdjacentElement('afterend', button);
   })
 }
@@ -123,8 +104,8 @@ function initContentCollapse(selector = '.content-collapse') {
       const element = button.previousElementSibling;
       if (!element) return;
       const expanded = element.classList.toggle('expanded');
-      button.classList.toggle('bi-three-dots', !expanded);
-      button.classList.toggle('bi-three-dots-vertical', expanded);
+      button.classList.toggle('bi-chevron-compact-down', !expanded);
+      button.classList.toggle('bi-chevron-compact-up', expanded);
       button.setAttribute('aria-label',
           expanded ? 'Show less' : 'Show more'
       );

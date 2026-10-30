@@ -34259,3 +34259,8 @@ textarea.form-control {
 #toast-container > .toast-error   { background-color: #bd362f !important; }
 #toast-container > .toast-info    { background-color: #2f96b4 !important; }
 #toast-container > .toast-warning { background-color: #f89406 !important; }
+
+/* DT */
+.dt-length, .dt-info { padding-left: 1rem; }
+.dt-length > select { margin-right: 0.5rem; }
+.dt-search, .dt-paging { padding-right: 1rem; }
