@@ -4,9 +4,71 @@ namespace App\Controllers;
 
 use App\Models\AuthMasterModel;
 use CodeIgniter\HTTP\ResponseInterface;
+use Throwable;
 
 class Admin extends BaseController
 {
+
+    /**
+     * POST JSON to LINK_INTERNAL_API with the signed-in user's JWT and return [http status, decoded body]
+     * @param string $endpoint
+     * @param array $payload
+     * @return array
+     */
+    private function callApi(string $endpoint, array $payload): array
+    {
+        try {
+            $response = service('curlrequest')->post(getenv('LINK_INTERNAL_API') . $endpoint, [
+                'json'        => $payload,
+                'headers'     => [
+                    'Accept'        => 'application/json',
+                    'Authorization' => 'Bearer ' . session()->get('access_token'),
+                ],
+                'timeout'     => 15,
+                'http_errors' => false,
+            ]);
+            $code = $response->getStatusCode();
+            $body = json_decode($response->getBody(), true);
+            if (! is_array($body) || $code === 404 || $code >= 500) {
+                log_message('error', 'LINK_INTERNAL_API ' . $endpoint . ' returned HTTP ' . $code);
+                return [503, ['message' => 'The service is unavailable. Please try again later.']];
+            }
+            return [$code, $body];
+        } catch (Throwable $e) {
+            log_message('error', 'LINK_INTERNAL_API ' . $endpoint . ' failed: ' . $e->getMessage());
+            return [503, ['message' => 'The service is unavailable. Please try again later.']];
+        }
+    }
+
+    /**
+     * Table Builder configuration of the account list, shared by the page and its JSON endpoint
+     * @return array
+     */
+    private function accountsListConfig(): array
+    {
+        $authModel = new AuthMasterModel();
+        $fields    = $authModel->getConfiguration();
+        unset($fields['uid'], $fields['admin_notes']);
+        $columns   = AuthMasterModel::toColumns($fields);
+        // the select fields double as filters, querying the same column the table orders/searches on
+        $filters   = AuthMasterModel::toFilters($fields, ['otp_mode', 'account_status', 'account_type']);
+        return [
+            'table_id'    => 'accountTable',
+            'title'       => 'All User Accounts',
+            'subtitle'    => 'This table includes staff and client accounts',
+            'id_field'    => 'uid',
+            'urls'        => [
+                'data'   => base_url('admin/accounts'),
+                'create' => base_url('admin/accounts/create'),
+                'edit'   => base_url('admin/accounts/edit/{uid}'),
+            ],
+            'labels'      => ['add' => 'Add Account'],
+            'columns'     => $columns,
+            'filters'     => $filters,
+            'order'       => [['email_address', 'asc']],
+            'page_length' => 25,
+        ];
+    }
 
     /**
      * Dashboard
@@ -23,61 +85,65 @@ class Admin extends BaseController
 
     public function accounts(): string
     {
-        $authModel = new AuthMasterModel();
-        $fields    = $authModel->getConfiguration();
-        unset($fields['uid'], $fields['admin_notes']);
-        $columns   = AuthMasterModel::toColumns($fields);
-        // the select fields double as filters, querying the same column the table orders/searches on
-        $filters   = AuthMasterModel::toFilters($fields, ['otp_mode', 'account_status', 'account_type']);
-        $data      = [
+        $data = [
             'page_title' => 'Account',
             'slug'       => 'accounts',
-            'listConfig' => [
-                'table_id'    => 'accountTable',
-                'title'       => 'All User Accounts',
-                'subtitle'    => 'This table includes staff and client accounts',
-                'id_field'    => 'uid',
-                'urls'        => [
-                    'data'   => base_url('admin/accounts'),
-                    'create' => base_url('admin/accounts/create'),
-                    'edit'   => base_url('admin/accounts/edit/{uid}'),
-                ],
-                'labels'      => ['add' => 'Add Account'],
-                'columns'     => $columns,
-                'filters'     => $filters,
-                'order'       => [['email_address', 'asc']],
-                'page_length' => 25,
-            ]
+            'listConfig' => $this->accountsListConfig(),
         ];
         return view('generic_list', $data);
     }
 
     /**
-     * List accounts accordingly
+     * List accounts accordingly: the DataTables request is validated against the list configuration,
+     * then forwarded to LINK_INTERNAL_API v1/accounts
      * @return ResponseInterface
      */
     public function accountsList(): ResponseInterface
     {
-        $data = [
-            ['edit_url' => base_url('admin/accounts/edit/eikinotternovacom'), 'password_expiry' => '2027-11-15', 'full_name' => '力川栄欽', 'email_address' => 'eikin@otternova.com', 'telephone_number' => '+6597754577', 'otp_mode' => 'E', 'account_status' => 'A', 'account_type' => 'S'],
-            ['edit_url' => base_url('admin/accounts/edit/fauziotternovacom'), 'password_expiry' => '2027-11-15', 'full_name' => 'Fauzi', 'email_address' => 'fauzi@otternova.com', 'telephone_number' => '+6285658201275', 'otp_mode' => 'E', 'account_status' => 'A', 'account_type' => 'S'],
-            ['edit_url' => base_url('admin/accounts/edit/jateotternovacom'), 'password_expiry' => '2027-11-15', 'full_name' => 'เจต', 'email_address' => 'jate@otternova.com', 'telephone_number' => '+66897828331', 'otp_mode' => 'E', 'account_status' => 'P', 'account_type' => 'S'],
-            ['edit_url' => base_url('admin/accounts/edit/harrypotterhogwartsedu'), 'password_expiry' => '2027-11-15', 'full_name' => 'Harry Potter', 'email_address' => 'harry.potter@hogwarts.edu', 'telephone_number' => '+447911123456', 'otp_mode' => 'E', 'account_status' => 'A', 'account_type' => 'C'],
-            ['edit_url' => base_url('admin/accounts/edit/ronweasleyhogwartsedu'), 'password_expiry' => '2027-11-15', 'full_name' => 'Ron Weasley', 'email_address' => 'ron.weasley@hogwarts.edu', 'telephone_number' => '+447911123457', 'otp_mode' => 'E', 'account_status' => 'B', 'account_type' => 'C'],
-            ['edit_url' => base_url('admin/accounts/edit/hermionegrangerhogwartsedu'), 'password_expiry' => '2027-11-15', 'full_name' => 'Hermione Granger', 'email_address' => 'hermione.granger@hogwarts.edu', 'telephone_number' => '+447911123458', 'otp_mode' => 'T', 'account_status' => 'A', 'account_type' => 'C'],
-            ['edit_url' => base_url('admin/accounts/edit/dracomalfoyhogwartsedu'), 'password_expiry' => '2027-11-15', 'full_name' => 'Draco Malfoy', 'email_address' => 'draco.malfoy@hogwarts.edu', 'telephone_number' => '+447911123459', 'otp_mode' => 'X', 'account_status' => 'S', 'account_type' => 'C'],
-        ];
-        $data = array_map(static function (array $row): array {
-            $row['telephone_number'] = formatPhoneNumber($row['telephone_number']);
-            $row['password_expiry'] = formatDate($row['password_expiry'], LOCALE);
-            return $row;
-        }, $data);
-        return $this->response->setJSON([
-            'draw'            => $this->request->getPost('draw'),
-            'recordsTotal'    => count($data),
-            'recordsFiltered' => count($data),
-            'data'            => $data
+        $config = $this->accountsListConfig();
+        $params = lb_request($this->request, $config);
+
+        // the API works with field names, not the DB columns the Table Builder uses
+        $fieldOf = array_column($params['columns'], 'data', 'db');
+        $order   = [];
+        foreach ($params['order'] as [$column, $dir]) {
+            $order[] = ['field' => $fieldOf[$column], 'dir' => strtolower($dir)];
+        }
+        $filters = [];
+        foreach ($params['filters'] as $item) {
+            $value = (string) $item['value'];
+            // select filters only accept the configured values
+            if (in_array($value, array_column($item['def']['options'], 'value'), true)) {
+                $filters[$item['def']['name']] = $value;
+            }
+        }
+
+        [$code, $body] = $this->callApi('v1/staff/accounts', [
+            'start'   => $params['start'],
+            'length'  => $params['length'],
+            'search'  => $params['search'],
+            'order'   => $order,
+            'filters' => $filters,
         ]);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            // the Table Builder shows 'error' as a toast
+            return $this->response->setJSON(lb_response($params['draw'], 0, 0, []) + [
+                'error' => $body['message'] ?? 'Could not load the accounts. Please try again.',
+            ]);
+        }
+
+        $result = $body['data'] ?? [];
+        $rows   = array_map(static function (array $row): array {
+            $row['telephone_number'] = empty($row['telephone_number']) ? '' : formatPhoneNumber($row['telephone_number']);
+            $row['password_expiry']  = empty($row['password_expiry']) ? '' : formatDate($row['password_expiry'], LOCALE);
+            return $row;
+        }, (array) ($result['rows'] ?? []));
+        return $this->response->setJSON(lb_response(
+            $params['draw'],
+            (int) ($result['records_total'] ?? 0),
+            (int) ($result['records_filtered'] ?? 0),
+            lb_rows($rows, $config)
+        ));
     }
 
     public function accountsEdit(string $uid): string
