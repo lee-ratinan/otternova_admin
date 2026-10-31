@@ -33975,9 +33975,18 @@ textarea.form-control {
 
 /* Tables striped in dark mode */
 [data-theme=dark] .table-striped>tbody>tr:nth-of-type(odd)>* {
-  background-color: rgba(255, 255, 255, 0.02);
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
 }
-
+[data-theme=dark] .table-striped>tbody>tr:nth-of-type(odd):hover>* {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+[data-theme=dark] .table-striped>tbody>tr:nth-of-type(even)>* {
+  color: #ffffff;
+}
+[data-theme=dark] .table-striped>tbody>tr:nth-of-type(even):hover>* {
+  background-color: rgba(255, 255, 255, 0.1);
+}
 /* Card shadow adjustment */
 [data-theme=dark] .card,
 [data-theme=dark] .widget {
