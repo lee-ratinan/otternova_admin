@@ -37,7 +37,7 @@ class Admin extends BaseController
                 'subtitle'    => 'This table includes staff and client accounts',
                 'ajax_url'    => base_url('admin/accounts'),
                 'row_id'      => 'uid',
-                'add'         => ['url' => base_url('admin/accounts/edit/create'), 'label' => 'Add Account'],
+                'add'         => ['url' => base_url('admin/accounts/create'), 'label' => 'Add Account'],
                 'edit'        => ['url' => base_url('admin/accounts/edit/{uid}')],
                 'columns'     => $columns,
                 'filters'     => [
@@ -108,6 +108,44 @@ class Admin extends BaseController
             'recordsFiltered' => count($data),
             'data'            => $data
         ]);
+    }
+
+    public function accountsEdit(string $uid): string
+    {
+        $values = [];
+        $mode   = 'create';
+        if ('create' != $uid) {
+            $values = [
+                'auth_master.id'               => 15,
+                'auth_master.uid'              => 'eikinotternovacom',
+                'auth_master.email_address'    => 'eikin@otternova.com',
+                'auth_master.telephone_number' => '+6597754577',
+                'auth_master.password_hash'    => '***',
+                'auth_master.password_expiry'  => '2027-11-15',
+                'auth_master.full_name'        => '力川栄欽',
+                'auth_master.otp_mode'         => 'E',
+                'auth_master.account_status'   => 'A',
+                'auth_master.account_type'     => 'S',
+                'auth_master.admin_notes'      => 'He is the CEO!',
+                'staff_master.id'              => 20,
+                'staff_master.auth_id'         => 15,
+                'client_master.id'             => 25,
+                'client_master.auth_id'        => 15,
+            ];
+            $mode   = 'view';
+        }
+        $data = [
+            'page_title' => 'Account',
+            'slug'       => 'account',
+            'mode'       => $mode,
+            'formConfig' => []
+        ];
+        return view('generic_form', $data);
+    }
+
+    public function accountsEditPost(): ResponseInterface
+    {
+        return $this->response->setJSON([]);
     }
 
     /**

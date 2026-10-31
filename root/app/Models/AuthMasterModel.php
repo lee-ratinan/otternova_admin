@@ -112,32 +112,4 @@ class AuthMasterModel extends Model
         $email = strtolower($email);
         return preg_replace('/[^a-z0-9]/', '', $email);
     }
-
-    /**
-     * @param string $uid
-     * @return array|null
-     */
-    public function findByUid(string $uid): ?array
-    {
-        return $this->where('uid', $uid)->first();
-    }
-    /**
-     * Find an account by email address
-     * @param string $email
-     * @return array|null
-     */
-    public function findByEmail(string $email): ?array
-    {
-        return $this->where('email_address', $email)->first();
-    }
-
-    /**
-     * Find an account by telephone number
-     * @param string $telephone
-     * @return array|null
-     */
-    public function findByTelephone(string $telephone): ?array
-    {
-        return $this->where('telephone_number', $telephone)->first();
-    }
 }

@@ -11,6 +11,7 @@ $routes->group('admin', [], static function($routes) {
     // Users
     $routes->get('accounts', 'Admin::accounts'); // done prototyping
     $routes->post('accounts', 'Admin::accountsList'); // done dummy data
+    $routes->get('accounts/create', 'Admin::accountsEdit/create');
     $routes->get('accounts/edit/(:any)', 'Admin::accountsEdit/$1');
 
 
