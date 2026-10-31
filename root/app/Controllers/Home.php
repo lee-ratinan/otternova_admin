@@ -25,7 +25,7 @@ class Home extends BaseController
     }
 
     /**
-     * POST login: forward the credentials to LINK_API.
+     * POST login: forward the credentials to LINK_INTERNAL_API.
      * Responds with either {status: 'otp_required'} or {status: 'success', redirect}.
      */
     public function login(): ResponseInterface
@@ -39,7 +39,7 @@ class Home extends BaseController
         [$code, $body] = $this->callApi('login', [
             'email_address' => $email,
             'password'      => $password,
-            'user_type'     => self::USER_TYPE,
+            'account_type'  => self::USER_TYPE,
         ]);
         if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
             return $this->fail($body['message'] ?? 'Invalid email address or password.', $code === 200 ? 401 : $code);
@@ -69,7 +69,7 @@ class Home extends BaseController
     }
 
     /**
-     * POST verify-otp: verify the emailed code with LINK_API, then create the session.
+     * POST verify-otp: verify the emailed code with LINK_INTERNAL_API, then create the session.
      */
     public function verifyOtp(): ResponseInterface
     {
@@ -101,7 +101,7 @@ class Home extends BaseController
     }
 
     /**
-     * GET logout: revoke the JWT at LINK_API (best effort), then end the session.
+     * GET logout: revoke the JWT at LINK_INTERNAL_API (best effort), then end the session.
      */
     public function logout(): RedirectResponse
     {
@@ -115,7 +115,7 @@ class Home extends BaseController
     }
 
     /**
-     * Store the JWT and the user profile returned by LINK_API in the session.
+     * Store the JWT and the user profile returned by LINK_INTERNAL_API in the session.
      */
     private function createSession(array $data): ResponseInterface
     {
@@ -141,7 +141,7 @@ class Home extends BaseController
     }
 
     /**
-     * POST JSON to LINK_API and return [http status, decoded body].
+     * POST JSON to LINK_INTERNAL_API and return [http status, decoded body].
      */
     private function callApi(string $endpoint, array $payload, ?string $token = null): array
     {
@@ -150,7 +150,7 @@ class Home extends BaseController
             $headers['Authorization'] = 'Bearer ' . $token;
         }
         try {
-            $response = service('curlrequest')->post(getenv('LINK_API') . $endpoint, [
+            $response = service('curlrequest')->post(getenv('LINK_INTERNAL_API') . $endpoint, [
                 'json'        => $payload,
                 'headers'     => $headers,
                 'timeout'     => 15,
@@ -159,12 +159,12 @@ class Home extends BaseController
             $code = $response->getStatusCode();
             $body = json_decode($response->getBody(), true);
             if (! is_array($body) || $code === 404 || $code >= 500) {
-                log_message('error', 'LINK_API ' . $endpoint . ' returned HTTP ' . $code);
+                log_message('error', 'LINK_INTERNAL_API ' . $endpoint . ' returned HTTP ' . $code);
                 return [503, ['message' => 'The authentication service is unavailable. Please try again later.']];
             }
             return [$code, $body];
         } catch (Throwable $e) {
-            log_message('error', 'LINK_API ' . $endpoint . ' failed: ' . $e->getMessage());
+            log_message('error', 'LINK_INTERNAL_API ' . $endpoint . ' failed: ' . $e->getMessage());
             return [503, ['message' => 'The authentication service is unavailable. Please try again later.']];
         }
     }
