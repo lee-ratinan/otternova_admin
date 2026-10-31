@@ -9,6 +9,8 @@ use CodeIgniter\Model;
  */
 class StaffMasterModel extends Model
 {
+    use FieldConfigurationTrait;
+
     // employment_type
     public const EMPLOYMENT_FULL_TIME = 'F';
     public const EMPLOYMENT_PART_TIME = 'P';
@@ -108,7 +110,7 @@ class StaffMasterModel extends Model
         'gender'                      => 'permit_empty|in_list[M,F,NB,X,N]',
         'date_of_birth'               => 'permit_empty|valid_date[Y-m-d]',
         'nationality_code'            => 'permit_empty|alpha|exact_length[2]',
-        'national_id_type'            => 'permit_empty|[N,P,W]',
+        'national_id_type'            => 'permit_empty|in_list[N,P,W]',
         'national_id_number'          => 'permit_empty|max_length[255]',
         'tax_id_number'               => 'permit_empty|max_length[255]',
         'address_line_1'              => 'permit_empty|max_length[255]',
@@ -130,40 +132,62 @@ class StaffMasterModel extends Model
     protected $cleanValidationRules = true;
 
     /**
-     * This function returns the configuration of the list view
+     * Field configuration shared by the Form Builder (as 'fields') and the Table Builder (via toColumns()),
+     * keyed by field name so a controller can unset() what it does not need.
+     * department_id and manager_staff_id are plain IDs until there is a department/staff lookup to build options from.
      * @return array
      */
-    public function getListViewConfiguration(): array
+    public function getConfiguration(): array
     {
-        $fields = $this->allowedFields;
-        $result = [];
-        foreach ($fields as $field) {
-            $result[$field] = [
-                'data'   => $field,
-                'title'  => lang('StaffMaster.fields.' . $field),
-                'db'     => 's.' . $field,
-            ];
-        }
-        // Add Badges
-        $fieldsWithBadge = [
-            'employment_type'   => ['F' => 'primary', 'P' => 'info', 'C' => 'warning', 'I' => 'secondary'],
-            'employment_status' => ['A' => 'success', 'P' => 'warning', 'T' => 'danger', 'R' => 'secondary'],
+        $countries = listCountries();
+        $fields    = [
+            'auth_id'                     => ['type' => 'number', 'readonly_in' => ['edit']], // linked account is fixed once created
+            'department_id'               => ['type' => 'number'],
+            'employee_code'               => ['type' => 'text'],
+            'job_title'                   => ['type' => 'text'],
+            'manager_staff_id'            => ['type' => 'number'],
+            'employment_type'             => ['type' => 'select'],
+            'employment_status'           => ['type' => 'select'],
+            'employment_start_date'       => ['type' => 'date', 'searchable' => false],
+            'probation_end_date'          => ['type' => 'date', 'searchable' => false],
+            'employment_end_date'         => ['type' => 'date', 'searchable' => false],
+            'work_country_code'           => ['type' => 'select', 'options' => $countries, 'searchable' => false],
+            'work_email_address'          => ['type' => 'email'],
+            'work_telephone_number'       => ['type' => 'tel'],
+            'legal_first_name'            => ['type' => 'text'],
+            'legal_middle_name'           => ['type' => 'text'],
+            'legal_last_name'             => ['type' => 'text'],
+            'preferred_name'              => ['type' => 'text'],
+            'gender'                      => ['type' => 'select'],
+            'date_of_birth'               => ['type' => 'date', 'max' => date('Y-m-d'), 'searchable' => false],
+            'nationality_code'            => ['type' => 'select', 'options' => $countries, 'searchable' => false],
+            'national_id_type'            => ['type' => 'select'],
+            'national_id_number'          => ['type' => 'text'],
+            'tax_id_number'               => ['type' => 'text'],
+            'address_line_1'              => ['type' => 'text'],
+            'address_line_2'              => ['type' => 'text'],
+            'address_city'                => ['type' => 'text'],
+            'subdivision_code'            => ['type' => 'text'], // depends on country_code; no dependent select yet
+            'postal_code'                 => ['type' => 'text'],
+            'country_code'                => ['type' => 'select', 'options' => $countries, 'searchable' => false],
+            'emergency_contact_name'      => ['type' => 'text'],
+            'emergency_contact_relation'  => ['type' => 'text'],
+            'emergency_contact_telephone' => ['type' => 'tel'],
+            'preferred_language'          => ['type' => 'select', 'options' => listLanguages(), 'searchable' => false],
+            'timezone'                    => ['type' => 'select', 'options' => self::timezoneOptions(), 'searchable' => false],
+            'avatar_path'                 => ['type' => 'text', 'orderable' => false, 'searchable' => false],
+            'status_message'              => ['type' => 'text'],
+            'bio'                         => ['type' => 'textarea', 'rows' => 4, 'orderable' => false],
+            'hr_notes'                    => ['type' => 'textarea', 'rows' => 4, 'orderable' => false],
         ];
-        foreach ($fieldsWithBadge as $field => $values) {
-            $result[$field] = [
-                'data'   => $field,
-                'title'  => lang('StaffMaster.fields.' . $field),
-                'db'     => 's.' . $field,
-                'type'   => 'badge',
-            ];
-            foreach ($values as $value => $class) {
-                $result[$field]['badges'][$value] = [
-                    'label' => lang('StaffMaster.enum.' . $field . '.' . $value),
-                    'class' => 'bg-' . strtolower($class)
-                ];
-            }
-        }
-        return $result;
+        $enums     = [
+            'employment_type'   => [self::EMPLOYMENT_FULL_TIME => 'primary', self::EMPLOYMENT_PART_TIME => 'info', self::EMPLOYMENT_CONTRACT => 'warning', self::EMPLOYMENT_INTERN => 'secondary'],
+            'employment_status' => [self::STATUS_ACTIVE => 'success', self::STATUS_PROBATION => 'warning', self::STATUS_TERMINATED => 'danger', self::STATUS_RESIGNED => 'secondary'],
+            'gender'            => [self::GENDER_MALE, self::GENDER_FEMALE, self::GENDER_NON_BINARY, self::GENDER_OTHER, self::GENDER_NOT_SPECIFIED],
+            'national_id_type'  => [self::ID_NATIONAL_ID, self::ID_PASSPORT, self::ID_WORK_PERMIT],
+        ];
+
+        return $this->buildConfiguration('StaffMaster', $fields, $enums);
     }
 
     /**

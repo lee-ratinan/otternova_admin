@@ -9,6 +9,8 @@ use CodeIgniter\Model;
  */
 class AuthMasterModel extends Model
 {
+    use FieldConfigurationTrait;
+
     // otp_mode
     public const OTP_EMAIL     = 'E';
     public const OTP_TELEPHONE = 'T';
@@ -65,7 +67,7 @@ class AuthMasterModel extends Model
     protected $cleanValidationRules = true;
 
     /**
-     * Field configuration shared by the Form Builder (as 'fields') and the Table Builder (as 'columns'),
+     * Field configuration shared by the Form Builder (as 'fields') and the Table Builder (via toColumns()),
      * keyed by field name so a controller can unset() what it does not need.
      * password_hash is left out on purpose: a hash is never shown or edited directly.
      * @return array
@@ -94,32 +96,7 @@ class AuthMasterModel extends Model
             'account_type'   => [self::TYPE_STAFF => 'success', self::TYPE_CLIENT => 'info'],
         ];
 
-        $result = [];
-        foreach ($fields as $field => $config) {
-            // Rules come from $validationRules; the form adds permit_empty itself for optional fields
-            $rules = array_values(array_filter(
-                explode('|', $this->validationRules[$field] ?? ''),
-                static fn ($rule) => $rule !== '' && $rule !== 'permit_empty'
-            ));
-            $config = [
-                'name'     => $field,
-                'label'    => lang('AuthMaster.fields.' . $field),
-                'db'       => $this->table . '.' . $field,
-                'rules'    => implode('|', $rules),
-                'optional' => ! in_array('required', $rules, true),
-            ] + $config;
-            if (isset($enums[$field])) {
-                $config['searchable'] = false; // the search box would match the codes, not the labels
-                foreach ($enums[$field] as $value => $colour) {
-                    $label = lang('AuthMaster.enum.' . $field . '.' . $value);
-                    $config['options'][$value] = $label;
-                    $config['badges'][$value]  = ['label' => $label, 'class' => 'bg-' . $colour];
-                }
-            }
-            $result[$field] = $config;
-        }
-
-        return $result;
+        return $this->buildConfiguration('AuthMaster', $fields, $enums);
     }
 
     /**

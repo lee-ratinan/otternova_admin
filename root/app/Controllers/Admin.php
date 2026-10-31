@@ -26,30 +26,9 @@ class Admin extends BaseController
         $authModel = new AuthMasterModel();
         $fields    = $authModel->getConfiguration();
         unset($fields['uid'], $fields['admin_notes']);
-        // form-style fields -> table columns (fields with badges render as badges, everything else as text)
-        $columns   = [];
-        foreach ($fields as $field) {
-            $columns[] = [
-                'data'       => $field['name'],
-                'title'      => $field['label'],
-                'db'         => $field['db'],
-                'type'       => empty($field['badges']) ? 'text' : 'badge',
-                'badges'     => $field['badges'] ?? [],
-                'orderable'  => $field['orderable'] ?? true,
-                'searchable' => $field['searchable'] ?? true,
-            ];
-        }
+        $columns   = AuthMasterModel::toColumns($fields);
         // the select fields double as filters, querying the same column the table orders/searches on
-        $filters   = [];
-        foreach (['otp_mode', 'account_status', 'account_type'] as $name) {
-            $filters[] = [
-                'name'    => $name,
-                'type'    => 'select',
-                'label'   => $fields[$name]['label'],
-                'column'  => $fields[$name]['db'],
-                'options' => $fields[$name]['options'],
-            ];
-        }
+        $filters   = AuthMasterModel::toFilters($fields, ['otp_mode', 'account_status', 'account_type']);
         $data      = [
             'page_title' => 'Account',
             'slug'       => 'accounts',

@@ -9,6 +9,8 @@ use CodeIgniter\Model;
  */
 class ClientMasterModel extends Model
 {
+    use FieldConfigurationTrait;
+
     // national_id_type
     public const ID_NATIONAL_ID = 'N';
     public const ID_PASSPORT    = 'P';
@@ -76,24 +78,43 @@ class ClientMasterModel extends Model
     protected $cleanValidationRules = true;
 
     /**
-     * This function returns the configuration of the list view
+     * Field configuration shared by the Form Builder (as 'fields') and the Table Builder (via toColumns()),
+     * keyed by field name so a controller can unset() what it does not need.
      * @return array
      */
-    public function getListViewConfiguration(): array
+    public function getConfiguration(): array
     {
-        $fields = $this->allowedFields;
-        $result = [];
-        foreach ($fields as $field) {
-            $result[$field] = [
-                'data'   => $field,
-                'title'  => lang('ClientMaster.fields.' . $field),
-                'db'     => 'c.' . $field,
-            ];
-        }
-        // Boolean flags
-        $result['marketing_opt_in']['type']       = 'boolean';
-        $result['marketing_opt_in']['searchable'] = false;
-        return $result;
+        $fields = [
+            'auth_id'            => ['type' => 'number', 'readonly_in' => ['edit']], // linked account is fixed once created
+            'legal_first_name'   => ['type' => 'text'],
+            'legal_middle_name'  => ['type' => 'text'],
+            'legal_last_name'    => ['type' => 'text'],
+            'display_name'       => ['type' => 'text'],
+            'national_id_type'   => ['type' => 'select'],
+            'national_id_number' => ['type' => 'text'],
+            'status_message'     => ['type' => 'text'],
+            'status_emoji'       => ['type' => 'text'],
+            'gender'             => ['type' => 'select'],
+            'date_of_birth'      => ['type' => 'date', 'max' => date('Y-m-d'), 'searchable' => false],
+            'nationality_code'   => ['type' => 'select', 'options' => listCountries(), 'searchable' => false],
+            'preferred_language' => ['type' => 'select', 'options' => listLanguages(), 'searchable' => false],
+            'timezone'           => ['type' => 'select', 'options' => self::timezoneOptions(), 'searchable' => false],
+            'avatar_path'        => ['type' => 'text', 'orderable' => false, 'searchable' => false],
+            'bio'                => ['type' => 'textarea', 'rows' => 4, 'orderable' => false],
+            'marketing_opt_in'   => [
+                'type'          => 'switch',
+                'checked_value' => '1',
+                'off_value'     => '0',
+                'searchable'    => false,
+            ],
+            'internal_notes'     => ['type' => 'textarea', 'rows' => 4, 'orderable' => false],
+        ];
+        $enums  = [
+            'national_id_type' => [self::ID_NATIONAL_ID, self::ID_PASSPORT],
+            'gender'           => [self::GENDER_MALE, self::GENDER_FEMALE, self::GENDER_NON_BINARY, self::GENDER_OTHER, self::GENDER_NOT_SPECIFIED],
+        ];
+
+        return $this->buildConfiguration('ClientMaster', $fields, $enums);
     }
 
     /**
