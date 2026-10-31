@@ -36,7 +36,7 @@ class Home extends BaseController
             return $this->fail('Please enter a valid email address and password.', 422);
         }
 
-        [$code, $body] = $this->callApi('login', [
+        [$code, $body] = $this->callApi('v1/login', [
             'email_address' => $email,
             'password'      => $password,
             'account_type'  => self::USER_TYPE,
@@ -84,7 +84,7 @@ class Home extends BaseController
             return $this->fail('Please enter the 6-digit verification code.', 422);
         }
 
-        [$code, $body] = $this->callApi('verify-otp', [
+        [$code, $body] = $this->callApi('v1/verify-otp', [
             'otp_token' => $otpToken,
             'otp'       => $otp,
         ]);
@@ -108,7 +108,7 @@ class Home extends BaseController
         $session = session();
         $token   = $session->get('access_token');
         if (! empty($token)) {
-            $this->callApi('logout', [], $token);
+            $this->callApi('v1/logout', [], $token);
         }
         $session->destroy();
         return redirect()->to(base_url());
