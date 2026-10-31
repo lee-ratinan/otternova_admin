@@ -70,6 +70,9 @@
  * ]
  *
  * The same `rules` strings are used on the client (JS) and by fb_server_validation() on the server.
+ *
+ * The same field list can be passed to the Table Builder as `columns` (table_helper.php); table-only keys
+ * such as db / badges / orderable / searchable / column_type are ignored here.
  */
 
 // ---------------------------------------------------------------------------------------------

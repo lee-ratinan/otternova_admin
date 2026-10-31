@@ -24,10 +24,13 @@ class Admin extends BaseController
     public function accounts(): string
     {
         $authModel = new AuthMasterModel();
-        $columns   = $authModel->getListViewConfiguration();
-        unset($columns['uid']);
-        unset($columns['password_hash']);
-        unset($columns['admin_notes']);
+        $columns   = $authModel->getConfiguration();
+        unset($columns['uid'], $columns['admin_notes']);
+        // the select fields double as filters, querying the same column the table orders/searches on
+        $filters   = [];
+        foreach (['otp_mode', 'account_status', 'account_type'] as $field) {
+            $filters[] = ['column' => $columns[$field]['db']] + $columns[$field];
+        }
         $data      = [
             'page_title' => 'Account',
             'slug'       => 'accounts',
@@ -40,41 +43,7 @@ class Admin extends BaseController
                 'add'         => ['url' => base_url('admin/accounts/create'), 'label' => 'Add Account'],
                 'edit'        => ['url' => base_url('admin/accounts/edit/{uid}')],
                 'columns'     => $columns,
-                'filters'     => [
-                    [
-                        'name'    => 'otp_mode',
-                        'type'    => 'select',
-                        'label'   => lang('AuthMaster.fields.otp_mode'),
-                        'column'  => 'p.otp_mode',
-                        'options' => [
-                            'E' => lang('AuthMaster.enum.otp_mode.E'),
-                            'T' => lang('AuthMaster.enum.otp_mode.T'),
-                            'X' => lang('AuthMaster.enum.otp_mode.X')
-                        ]
-                    ],
-                    [
-                        'name'    => 'account_status',
-                        'type'    => 'select',
-                        'label'   => lang('AuthMaster.fields.account_status'),
-                        'column'  => 'p.account_status',
-                        'options' => [
-                            'P' => lang('AuthMaster.enum.account_status.P'),
-                            'A' => lang('AuthMaster.enum.account_status.A'),
-                            'B' => lang('AuthMaster.enum.account_status.B'),
-                            'S' => lang('AuthMaster.enum.account_status.S'),
-                        ]
-                    ],
-                    [
-                        'name'    => 'account_type',
-                        'type'    => 'select',
-                        'label'   => lang('AuthMaster.fields.account_type'),
-                        'column'  => 'p.account_type',
-                        'options' => [
-                            'S' => lang('AuthMaster.enum.account_type.S'),
-                            'C' => lang('AuthMaster.enum.account_type.C'),
-                        ]
-                    ]
-                ],
+                'filters'     => $filters,
                 'order'       => [['email_address', 'asc']],
                 'page_length' => 25,
             ]
@@ -115,27 +84,28 @@ class Admin extends BaseController
         $values = [];
         $mode   = 'create';
         if ('create' != $uid) {
+            // keyed by field name, as the form looks values up by the field's 'name'
             $values = [
-                'auth_master.id'               => 15,
-                'auth_master.uid'              => 'eikinotternovacom',
-                'auth_master.email_address'    => 'eikin@otternova.com',
-                'auth_master.telephone_number' => '+6597754577',
-                'auth_master.password_hash'    => '***',
-                'auth_master.password_expiry'  => '2027-11-15',
-                'auth_master.full_name'        => '力川栄欽',
-                'auth_master.otp_mode'         => 'E',
-                'auth_master.account_status'   => 'A',
-                'auth_master.account_type'     => 'S',
-                'auth_master.admin_notes'      => 'He is the CEO!',
+                'id'               => 15,
+                'uid'              => 'eikinotternovacom',
+                'email_address'    => 'eikin@otternova.com',
+                'telephone_number' => '+6597754577',
+                'password_expiry'  => '2027-11-15',
+                'full_name'        => '力川栄欽',
+                'otp_mode'         => 'E',
+                'account_status'   => 'A',
+                'account_type'     => 'S',
+                'admin_notes'      => 'He is the CEO!',
             ];
             $mode   = 'view';
         }
+        $authModel  = new AuthMasterModel();
         $formConfig = [
             'form_id'  => 'account-form',
             'title'    => ['create' => 'New Account', 'edit' => 'Edit Account', 'view' => 'Account Detail'][$mode],
             'subtitle' => 'Fields marked with * are required',
             'mode'     => $mode,
-            'id'       => $values['auth_master.id'] ?? 0,
+            'id'       => $values['id'] ?? 0,
             'method'   => 'POST',
             'urls'     => [
                 'submit' => site_url('accounts/save'),
@@ -144,6 +114,7 @@ class Admin extends BaseController
                 'list'   => site_url('accounts'),
             ],
             'values'   => $values,
+            'fields'   => array_values($authModel->getConfiguration()),
         ];
         $data       = [
             'page_title' => 'Account',
@@ -207,23 +178,34 @@ class Admin extends BaseController
                 'fields' => [
                     ['type' => 'heading', 'label' => 'General'],
                     [
-                        'name' => 'name', 'type' => 'text', 'label' => 'Product name',
-                        'placeholder' => 'e.g. Ergonomic chair', 'help' => '3-80 characters',
+                        'name' => 'name',
+                        'type' => 'text',
+                        'label' => 'Product name',
+                        'placeholder' => 'e.g. Ergonomic chair',
+                        'help' => '3-80 characters',
                         'rules' => 'required|min_length[3]|max_length[80]',
                     ],
                     [
-                        'name' => 'sku', 'type' => 'text', 'label' => 'SKU', 'badge' => 'New',
+                        'name' => 'sku',
+                        'type' => 'text',
+                        'label' => 'SKU',
+                        'badge' => 'New',
                         'readonly_in' => ['edit'],                       // editable on create only
                         'rules' => 'required|alpha_dash|max_length[20]',
                         'messages' => ['alpha_dash' => 'SKU may only contain letters, digits, - and _.'],
                     ],
                     [
-                        'name' => 'category_id', 'type' => 'select', 'label' => 'Category',
+                        'name' => 'category_id',
+                        'type' => 'select',
+                        'label' => 'Category',
                         'options' => [1 => 'Electronics', 2 => 'Books', 3 => 'Home & Garden'],   // value => label
-                        'attrs' => ['placeholder' => 'Choose a category'], 'rules' => 'required',
+                        'attrs' => ['placeholder' => 'Choose a category'],
+                        'rules' => 'required',
                     ],
                     [
-                        'name' => 'price', 'type' => 'number', 'label' => 'Price',
+                        'name' => 'price',
+                        'type' => 'number',
+                        'label' => 'Price',
                         'attrs' => ['min' => 0, 'max' => 99999, 'step' => '0.01', 'required' => true],
                         'help' => 'Two decimals max',
                     ],

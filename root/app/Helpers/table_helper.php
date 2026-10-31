@@ -54,7 +54,12 @@
  *   'labels'     => ['A' => 'Active'],   // value => label  (boolean: ['true' => 'Yes', 'false' => 'No'])
  *   'badges'     => ['A' => ['label' => 'Active', 'class' => 'bg-success']],
  *   'decimals'   => 2,                   // number only
+ *   'column_type' => 'badge',            // overrides 'type' when the entry is shared with the Form Builder
  * ]
+ *
+ * A Form Builder field can be used as a column as-is: 'name' => data, 'label' => title, and a form 'type'
+ * becomes a column type (anything with 'badges' => badge, switch => boolean, number => number, else text).
+ * Form-only keys (rules, options, attrs, help, ...) are ignored here; table-only keys are ignored by the form.
  *
  * FILTER (same keys as a Form Builder field where they apply):
  * [
@@ -251,26 +256,50 @@ if (! function_exists('lb_defaults')) {
     }
 }
 
+if (! function_exists('lb_column_type')) {
+    /** Column type of a column, or of a Form Builder field (e.g. select + badges => badge, switch => boolean). */
+    function lb_column_type(array $c): string
+    {
+        if (isset($c['column_type'])) {
+            return (string) $c['column_type'];
+        }
+        $type = strtolower((string) ($c['type'] ?? 'text'));
+        if (in_array($type, ['text', 'html', 'badge', 'boolean', 'number'], true)) {
+            return $type;
+        }
+        if (! empty($c['badges'])) {
+            return 'badge';
+        }
+        if ($type === 'switch' || ($type === 'checkbox' && empty($c['options']))) {
+            return 'boolean';
+        }
+
+        return $type === 'range' ? 'number' : 'text';
+    }
+}
+
 if (! function_exists('lb_columns')) {
-    /** Normalised column table (without the edit column, which is prepended by the script when editable). */
+    /**
+     * Normalised column table (without the edit column, which is prepended by the script when editable).
+     * A Form Builder field is accepted as a column: name => data, label => title, type => column type.
+     */
     function lb_columns(array $cfg): array
     {
         $cfg = lb_defaults($cfg);
         $out = [];
         foreach ((array) $cfg['columns'] as $c) {
-            $data = (string) ($c['data'] ?? '');
+            $data = (string) ($c['data'] ?? $c['name'] ?? '');
             if ($data === '') {
                 continue;
             }
             $out[] = array_merge([
-                'title'      => lb_humanize($data),
+                'title'      => (string) ($c['label'] ?? lb_humanize($data)),
                 'db'         => $data,
-                'type'       => 'text',
                 'orderable'  => true,
                 'searchable' => true,
                 'class'      => '',
                 'width'      => '',
-            ], $c, ['data' => $data]);
+            ], $c, ['data' => $data, 'type' => lb_column_type($c)]);
         }
 
         return $out;

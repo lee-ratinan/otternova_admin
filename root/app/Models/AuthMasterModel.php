@@ -65,40 +65,60 @@ class AuthMasterModel extends Model
     protected $cleanValidationRules = true;
 
     /**
-     * This function returns the configuration of the list view
+     * Field configuration shared by the Form Builder (as 'fields') and the Table Builder (as 'columns'),
+     * keyed by field name so a controller can unset() what it does not need.
+     * password_hash is left out on purpose: a hash is never shown or edited directly.
      * @return array
      */
-    public function getListViewConfiguration(): array
+    public function getConfiguration(): array
     {
-        $fields = $this->allowedFields;
-        $result = [];
-        foreach ($fields as $field) {
-            $result[$field] = [
-                'data'   => $field,
-                'title'  => lang('AuthMaster.fields.' . $field),
-                'db'     => 'a.' . $field,
-            ];
-        }
-        // Add Badges
-        $fieldsWithBadge = [
-            'otp_mode'       => ['E' => 'primary', 'T' => 'success', 'X' => 'secondary'],
-            'account_status' => ['P' => 'warning', 'A' => 'success', 'B' => 'danger', 'S' => 'secondary'],
-            'account_type'   => ['S' => 'success', 'C' => 'info']
+        $fields = [
+            'uid'              => [
+                'type'     => 'text',
+                'show_in'  => ['edit', 'view'], // generated from the email address on create
+                'readonly' => true,
+            ],
+            'email_address'    => ['type' => 'email'],
+            'telephone_number' => ['type' => 'tel'],
+            'password_expiry'  => ['type' => 'date', 'searchable' => false],
+            'full_name'        => ['type' => 'text'],
+            'otp_mode'         => ['type' => 'select'],
+            'account_status'   => ['type' => 'select'],
+            'account_type'     => ['type' => 'select'],
+            'admin_notes'      => ['type' => 'textarea', 'rows' => 4, 'orderable' => false],
         ];
-        foreach ($fieldsWithBadge as $field => $values) {
-            $result[$field] = [
-                'data'   => $field,
-                'title'  => lang('AuthMaster.fields.' . $field),
-                'db'     => 'auth_master.' . $field,
-                'type'   => 'badge',
-            ];
-            foreach ($values as $value => $class) {
-                $result[$field]['badges'][$value] = [
-                    'label' => lang('AuthMaster.enum.' . $field . '.' . $value),
-                    'class' => 'bg-' . strtolower($class)
-                ];
+        // value => badge colour; the order here is also the order of the select options
+        $enums = [
+            'otp_mode'       => [self::OTP_EMAIL => 'primary', self::OTP_TELEPHONE => 'success', self::OTP_NONE => 'secondary'],
+            'account_status' => [self::STATUS_PENDING => 'warning', self::STATUS_ACTIVE => 'success', self::STATUS_BLOCKED => 'danger', self::STATUS_SUSPENDED => 'secondary'],
+            'account_type'   => [self::TYPE_STAFF => 'success', self::TYPE_CLIENT => 'info'],
+        ];
+
+        $result = [];
+        foreach ($fields as $field => $config) {
+            // Rules come from $validationRules; the form adds permit_empty itself for optional fields
+            $rules = array_values(array_filter(
+                explode('|', $this->validationRules[$field] ?? ''),
+                static fn ($rule) => $rule !== '' && $rule !== 'permit_empty'
+            ));
+            $config = [
+                'name'     => $field,
+                'label'    => lang('AuthMaster.fields.' . $field),
+                'db'       => $this->table . '.' . $field,
+                'rules'    => implode('|', $rules),
+                'optional' => ! in_array('required', $rules, true),
+            ] + $config;
+            if (isset($enums[$field])) {
+                $config['searchable'] = false; // the search box would match the codes, not the labels
+                foreach ($enums[$field] as $value => $colour) {
+                    $label = lang('AuthMaster.enum.' . $field . '.' . $value);
+                    $config['options'][$value] = $label;
+                    $config['badges'][$value]  = ['label' => $label, 'class' => 'bg-' . $colour];
+                }
             }
+            $result[$field] = $config;
         }
+
         return $result;
     }
 
