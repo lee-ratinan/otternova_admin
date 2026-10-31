@@ -89,7 +89,7 @@ class AuthMasterModel extends Model
             $result[$field] = [
                 'data'   => $field,
                 'title'  => lang('AuthMaster.fields.' . $field),
-                'db'     => 'a.' . $field,
+                'db'     => 'auth_master.' . $field,
                 'type'   => 'badge',
             ];
             foreach ($values as $value => $class) {

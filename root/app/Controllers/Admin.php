@@ -92,10 +92,10 @@ class Admin extends BaseController
             ['edit_url' => base_url('admin/accounts/edit/eikinotternovacom'), 'password_expiry' => '2027-11-15', 'full_name' => '力川栄欽', 'email_address' => 'eikin@otternova.com', 'telephone_number' => '+6597754577', 'otp_mode' => 'E', 'account_status' => 'A', 'account_type' => 'S'],
             ['edit_url' => base_url('admin/accounts/edit/fauziotternovacom'), 'password_expiry' => '2027-11-15', 'full_name' => 'Fauzi', 'email_address' => 'fauzi@otternova.com', 'telephone_number' => '+6285658201275', 'otp_mode' => 'E', 'account_status' => 'A', 'account_type' => 'S'],
             ['edit_url' => base_url('admin/accounts/edit/jateotternovacom'), 'password_expiry' => '2027-11-15', 'full_name' => 'เจต', 'email_address' => 'jate@otternova.com', 'telephone_number' => '+66897828331', 'otp_mode' => 'E', 'account_status' => 'P', 'account_type' => 'S'],
-            ['edit_url' => base_url('admin/accounts/edit/harrypotterhogwartsedu'), 'password_expiry' => '2027-11-15', 'full_name' => 'Harry Potter', 'email_address' => 'harry.potter@hogwarts.edu', 'telephone_number' => '+447700900000', 'otp_mode' => 'E', 'account_status' => 'A', 'account_type' => 'C'],
-            ['edit_url' => base_url('admin/accounts/edit/ronweasleyhogwartsedu'), 'password_expiry' => '2027-11-15', 'full_name' => 'Ron Weasley', 'email_address' => 'ron.weasley@hogwarts.edu', 'telephone_number' => '+447700900001', 'otp_mode' => 'E', 'account_status' => 'B', 'account_type' => 'C'],
-            ['edit_url' => base_url('admin/accounts/edit/hermionegrangerhogwartsedu'), 'password_expiry' => '2027-11-15', 'full_name' => 'Hermione Granger', 'email_address' => 'hermione.granger@hogwarts.edu', 'telephone_number' => '+447700900002', 'otp_mode' => 'T', 'account_status' => 'A', 'account_type' => 'C'],
-            ['edit_url' => base_url('admin/accounts/edit/dracomalfoyhogwartsedu'), 'password_expiry' => '2027-11-15', 'full_name' => 'Draco Malfoy', 'email_address' => 'draco.malfoy@hogwarts.edu', 'telephone_number' => '+447700900003', 'otp_mode' => 'X', 'account_status' => 'S', 'account_type' => 'C'],
+            ['edit_url' => base_url('admin/accounts/edit/harrypotterhogwartsedu'), 'password_expiry' => '2027-11-15', 'full_name' => 'Harry Potter', 'email_address' => 'harry.potter@hogwarts.edu', 'telephone_number' => '+447911123456', 'otp_mode' => 'E', 'account_status' => 'A', 'account_type' => 'C'],
+            ['edit_url' => base_url('admin/accounts/edit/ronweasleyhogwartsedu'), 'password_expiry' => '2027-11-15', 'full_name' => 'Ron Weasley', 'email_address' => 'ron.weasley@hogwarts.edu', 'telephone_number' => '+447911123457', 'otp_mode' => 'E', 'account_status' => 'B', 'account_type' => 'C'],
+            ['edit_url' => base_url('admin/accounts/edit/hermionegrangerhogwartsedu'), 'password_expiry' => '2027-11-15', 'full_name' => 'Hermione Granger', 'email_address' => 'hermione.granger@hogwarts.edu', 'telephone_number' => '+447911123458', 'otp_mode' => 'T', 'account_status' => 'A', 'account_type' => 'C'],
+            ['edit_url' => base_url('admin/accounts/edit/dracomalfoyhogwartsedu'), 'password_expiry' => '2027-11-15', 'full_name' => 'Draco Malfoy', 'email_address' => 'draco.malfoy@hogwarts.edu', 'telephone_number' => '+447911123459', 'otp_mode' => 'X', 'account_status' => 'S', 'account_type' => 'C'],
         ];
         $data = array_map(static function (array $row): array {
             $row['telephone_number'] = formatPhoneNumber($row['telephone_number']);
@@ -127,18 +127,29 @@ class Admin extends BaseController
                 'auth_master.account_status'   => 'A',
                 'auth_master.account_type'     => 'S',
                 'auth_master.admin_notes'      => 'He is the CEO!',
-                'staff_master.id'              => 20,
-                'staff_master.auth_id'         => 15,
-                'client_master.id'             => 25,
-                'client_master.auth_id'        => 15,
             ];
             $mode   = 'view';
         }
-        $data = [
+        $formConfig = [
+            'form_id'  => 'account-form',
+            'title'    => ['create' => 'New Account', 'edit' => 'Edit Account', 'view' => 'Account Detail'][$mode],
+            'subtitle' => 'Fields marked with * are required',
+            'mode'     => $mode,
+            'id'       => $values['auth_master.id'] ?? 0,
+            'method'   => 'POST',
+            'urls'     => [
+                'submit' => site_url('accounts/save'),
+                'delete' => site_url('accounts/delete'),
+                'edit'   => site_url('accounts/edit/' . $uid),
+                'list'   => site_url('accounts'),
+            ],
+            'values'   => $values,
+        ];
+        $data       = [
             'page_title' => 'Account',
             'slug'       => 'account',
             'mode'       => $mode,
-            'formConfig' => []
+            'formConfig' => $formConfig
         ];
         return view('generic_form', $data);
     }
@@ -245,18 +256,6 @@ class Admin extends BaseController
                     ],
                     ['name' => 'internal_ref', 'type' => 'text', 'label' => 'Internal ref', 'attrs' => ['disabled' => true], 'show_in' => ['edit', 'view']],
                 ],
-            ],
-            'values' => [
-                'full_name'      => 'Nat Lee',
-                'email'          => 'nat@example.com',
-                'salary'         => '8500.00',
-                'description'    => 'Software engineering and technical leadership.',
-                'department'     => 'eng',
-                'is_active'      => 'Y',
-                'theme'          => 'dark',
-                'interests'      => ['tech', 'art'],
-                'rating'         => 8,
-                'favorite_color' => '#336699',
             ],
         ];
         return view('generic_form', $data);
