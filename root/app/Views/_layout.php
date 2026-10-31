@@ -146,7 +146,7 @@
                         </a>
                     </div>
                     <div class="user-menu-footer">
-                        <a class="user-menu-logout" href="<?= base_url() ?>">
+                        <a class="user-menu-logout" href="<?= base_url('logout') ?>">
                             <i class="bi bi-box-arrow-right"></i>
                             <span>Sign Out</span>
                         </a>
@@ -190,7 +190,7 @@
             <i class="bi bi-sliders"></i>
             <span class="mobile-menu-label">Profile</span>
         </a>
-        <a href="<?= base_url() ?>" class="mobile-menu-item mobile-menu-item-danger">
+        <a href="<?= base_url('logout') ?>" class="mobile-menu-item mobile-menu-item-danger">
             <i class="bi bi-box-arrow-right"></i>
             <span class="mobile-menu-label">Sign Out</span>
         </a>
@@ -242,7 +242,7 @@
                 <a href="<?= base_url('admin/notifications') ?>" class="sidebar-footer-action" title="Notifications">
                     <i class="bi bi-bell"></i>
                 </a>
-                <a href="<?= base_url() ?>" class="sidebar-footer-action sidebar-footer-logout" title="Logout">
+                <a href="<?= base_url('logout') ?>" class="sidebar-footer-action sidebar-footer-logout" title="Logout">
                     <i class="bi bi-box-arrow-right"></i>
                 </a>
             </div>

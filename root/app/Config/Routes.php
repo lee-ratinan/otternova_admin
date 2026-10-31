@@ -4,8 +4,11 @@ use CodeIgniter\Router\RouteCollection;
 
 /** @var RouteCollection $routes */
 $routes->get('/', 'Home::index');
+$routes->post('login', 'Home::login');
+$routes->post('verify-otp', 'Home::verifyOtp');
+$routes->get('logout', 'Home::logout');
 
-$routes->group('admin', [], static function($routes) {
+$routes->group('admin', ['filter' => 'auth'], static function($routes) {
     // Dashboard
     $routes->get('dashboard', 'Admin::dashboard'); // done prototyping
     // Users

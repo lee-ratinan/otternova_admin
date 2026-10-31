@@ -57,16 +57,25 @@
                     <h1 class="fauth-title">Welcome back</h1>
                     <p class="fauth-subtitle">Sign in continue to your OtterNova Admin workspace.</p>
                 </div>
-                <form class="fauth-form" novalidate>
+                <div id="login-alert" class="alert d-none" role="alert"></div>
+                <form id="login-form" class="fauth-form" action="<?= base_url('login') ?>" method="post" novalidate>
                     <div class="fauth-field">
                         <label for="email" class="form-label">Email address</label>
-                        <input type="email" class="form-control" id="email" name="email" placeholder="name@otternova.com" required>
+                        <input type="email" class="form-control" id="email" name="email" placeholder="name@otternova.com" autocomplete="username" required>
                     </div>
                     <div class="fauth-field">
                         <label for="password" class="form-label">Password</label>
-                        <input type="password" class="form-control" id="password" name="password" placeholder="Enter your password" required>
+                        <input type="password" class="form-control" id="password" name="password" placeholder="Enter your password" autocomplete="current-password" required>
                     </div>
-                    <a href="<?= base_url('admin/dashboard') ?>" class="btn btn-primary w-100">Sign In</a>
+                    <button type="submit" class="btn btn-primary w-100">Sign In</button>
+                </form>
+                <form id="otp-form" class="fauth-form d-none" action="<?= base_url('verify-otp') ?>" method="post" novalidate>
+                    <div class="fauth-field">
+                        <label for="otp" class="form-label">Verification code</label>
+                        <input type="text" class="form-control" id="otp" name="otp" placeholder="6-digit code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Verify</button>
+                    <button type="button" id="otp-back" class="btn btn-link w-100">Back to sign in</button>
                 </form>
                 <p class="fauth-foot-text">Don’t have your account? Forget your password? Tell your boss!</p>
             </div>
@@ -92,5 +101,105 @@
 <script src="<?= base_url('assets/js/main.js') ?>"></script>
 <!-- App Sidebar Toggle (for app pages with sidebars) -->
 <script src="<?= base_url('assets/js/apps-sidebar-toggle.js') ?>"></script>
+<script>
+(function () {
+  'use strict';
+
+  var loginForm = document.getElementById('login-form');
+  var otpForm = document.getElementById('otp-form');
+  var alertBox = document.getElementById('login-alert');
+
+  function showAlert(type, message) {
+    alertBox.className = 'alert alert-' + type;
+    alertBox.textContent = message;
+  }
+
+  function hideAlert() {
+    alertBox.className = 'alert d-none';
+    alertBox.textContent = '';
+  }
+
+  function showStep(step) {
+    loginForm.classList.toggle('d-none', step !== 'login');
+    otpForm.classList.toggle('d-none', step !== 'otp');
+    (step === 'otp' ? otpForm.otp : loginForm.email).focus();
+  }
+
+  function post(form) {
+    var button = form.querySelector('button[type="submit"]');
+    button.disabled = true;
+    hideAlert();
+    return fetch(form.action, {
+      method: 'POST',
+      headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: new FormData(form),
+      credentials: 'same-origin'
+    })
+      .then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (body) {
+          return { code: res.status, body: body };
+        });
+      })
+      .catch(function () {
+        return { code: 0, body: { message: 'Network error. Please check your connection and try again.' } };
+      })
+      .finally(function () {
+        button.disabled = false;
+      });
+  }
+
+  function handleSuccess(body) {
+    if (body.status === 'success' && body.redirect) {
+      window.location.href = body.redirect;
+      return true;
+    }
+    return false;
+  }
+
+  loginForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!loginForm.reportValidity()) {
+      return;
+    }
+    post(loginForm).then(function (res) {
+      if (handleSuccess(res.body)) {
+        return;
+      }
+      if (res.body.status === 'otp_required') {
+        loginForm.password.value = '';
+        otpForm.otp.value = '';
+        showStep('otp');
+        showAlert('info', res.body.message);
+        return;
+      }
+      showAlert('danger', res.body.message || 'Unable to sign in. Please try again.');
+    });
+  });
+
+  otpForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    otpForm.otp.value = otpForm.otp.value.replace(/\D/g, '');
+    if (!otpForm.reportValidity()) {
+      return;
+    }
+    post(otpForm).then(function (res) {
+      if (handleSuccess(res.body)) {
+        return;
+      }
+      otpForm.otp.value = '';
+      // 410: the verification has expired, so sign in again
+      if (res.code === 410) {
+        showStep('login');
+      }
+      showAlert('danger', res.body.message || 'The verification code is incorrect.');
+    });
+  });
+
+  document.getElementById('otp-back').addEventListener('click', function () {
+    hideAlert();
+    showStep('login');
+  });
+})();
+</script>
 </body>
 </html>
