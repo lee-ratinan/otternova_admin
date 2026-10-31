@@ -13,7 +13,7 @@ $routes->group('admin', [], static function($routes) {
     $routes->post('accounts', 'Admin::accountsList'); // done dummy data
     $routes->get('accounts/create', 'Admin::accountsEdit/create');
     $routes->get('accounts/edit/(:any)', 'Admin::accountsEdit/$1');
-    $routes->post('accounts/save', 'Admin::accountsSave');
+    $routes->post('accounts/save', 'Admin::accountsEditPost');
     $routes->post('accounts/delete', 'Admin::accountsDelete');
 
 

@@ -24,12 +24,31 @@ class Admin extends BaseController
     public function accounts(): string
     {
         $authModel = new AuthMasterModel();
-        $columns   = $authModel->getConfiguration();
-        unset($columns['uid'], $columns['admin_notes']);
+        $fields    = $authModel->getConfiguration();
+        unset($fields['uid'], $fields['admin_notes']);
+        // form-style fields -> table columns (fields with badges render as badges, everything else as text)
+        $columns   = [];
+        foreach ($fields as $field) {
+            $columns[] = [
+                'data'       => $field['name'],
+                'title'      => $field['label'],
+                'db'         => $field['db'],
+                'type'       => empty($field['badges']) ? 'text' : 'badge',
+                'badges'     => $field['badges'] ?? [],
+                'orderable'  => $field['orderable'] ?? true,
+                'searchable' => $field['searchable'] ?? true,
+            ];
+        }
         // the select fields double as filters, querying the same column the table orders/searches on
         $filters   = [];
-        foreach (['otp_mode', 'account_status', 'account_type'] as $field) {
-            $filters[] = ['column' => $columns[$field]['db']] + $columns[$field];
+        foreach (['otp_mode', 'account_status', 'account_type'] as $name) {
+            $filters[] = [
+                'name'    => $name,
+                'type'    => 'select',
+                'label'   => $fields[$name]['label'],
+                'column'  => $fields[$name]['db'],
+                'options' => $fields[$name]['options'],
+            ];
         }
         $data      = [
             'page_title' => 'Account',
@@ -38,10 +57,13 @@ class Admin extends BaseController
                 'table_id'    => 'accountTable',
                 'title'       => 'All User Accounts',
                 'subtitle'    => 'This table includes staff and client accounts',
-                'ajax_url'    => base_url('admin/accounts'),
-                'row_id'      => 'uid',
-                'add'         => ['url' => base_url('admin/accounts/create'), 'label' => 'Add Account'],
-                'edit'        => ['url' => base_url('admin/accounts/edit/{uid}')],
+                'id_field'    => 'uid',
+                'urls'        => [
+                    'data'   => base_url('admin/accounts'),
+                    'create' => base_url('admin/accounts/create'),
+                    'edit'   => base_url('admin/accounts/edit/{uid}'),
+                ],
+                'labels'      => ['add' => 'Add Account'],
                 'columns'     => $columns,
                 'filters'     => $filters,
                 'order'       => [['email_address', 'asc']],
@@ -108,26 +130,38 @@ class Admin extends BaseController
             'id'       => $values['id'] ?? 0,
             'method'   => 'POST',
             'urls'     => [
-                'submit' => site_url('accounts/save'),
-                'delete' => site_url('accounts/delete'),
-                'edit'   => site_url('accounts/edit/' . $uid),
-                'list'   => site_url('accounts'),
+                'submit' => base_url('admin/accounts/save'),
+                'delete' => base_url('admin/accounts/delete'),
+                'edit'   => base_url('admin/accounts/edit/' . $uid),
+                'list'   => base_url('admin/accounts'),
             ],
             'values'   => $values,
             'fields'   => array_values($authModel->getConfiguration()),
         ];
         $data       = [
-            'page_title' => 'Account',
-            'slug'       => 'account',
-            'mode'       => $mode,
-            'formConfig' => $formConfig
+            'page_title'  => 'Account',
+            'slug'        => 'account',
+            'breadcrumbs' => [
+                base_url('admin/accounts') => 'Accounts',
+            ],
+            'mode'        => $mode,
+            'formConfig'  => $formConfig
         ];
         return view('generic_form', $data);
     }
 
+    /**
+     * Save an account (create or edit)
+     * TEST ONLY: nothing is validated or saved yet, it always reports success to the form
+     * @return ResponseInterface
+     */
     public function accountsEditPost(): ResponseInterface
     {
-        return $this->response->setJSON([]);
+        return $this->response->setJSON([
+            'success'   => true,
+            'message'   => 'Account saved (test only, nothing was written).',
+            'csrf_hash' => csrf_hash(), // keeps the form's token fresh when CSRF regenerates
+        ]);
     }
 
     /**
