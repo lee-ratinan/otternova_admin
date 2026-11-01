@@ -6,7 +6,7 @@
                 <div class="profile-hero">
                     <div class="profile-hero-main">
                         <div class="profile-avatar-wrap">
-                            <img src="<?= base_url('assets/img/profile-img.webp') ?>" alt="[EIKIN RIKIKAWA]" class="profile-avatar">
+                            <img src="<?= esc(avatarUrl(session('user')['avatar_path'] ?? null), 'attr') ?>" alt="[EIKIN RIKIKAWA]" class="profile-avatar">
                         </div>
                         <div class="profile-hero-copy">
                             <div class="profile-eyebrow">[OTTER CEO]</div>

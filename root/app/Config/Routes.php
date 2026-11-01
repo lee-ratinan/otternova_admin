@@ -6,6 +6,7 @@ use CodeIgniter\Router\RouteCollection;
 $routes->get('/', 'Home::index');
 $routes->post('login', 'Home::login');
 $routes->post('verify-otp', 'Home::verifyOtp');
+$routes->post('change-password', 'Home::changePassword');
 $routes->get('logout', 'Home::logout');
 
 $routes->group('admin', ['filter' => 'auth'], static function($routes) {

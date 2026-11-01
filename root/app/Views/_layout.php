@@ -120,7 +120,7 @@
             <span class="header-divider"></span>
             <div class="header-action-wrap dropdown user-dropdown">
                 <button class="dropdown-toggle user-trigger" data-bs-toggle="dropdown" aria-expanded="false">
-                    <img src="<?= base_url('assets/img/profile-img.webp') ?>" alt="User Avatar" class="user-avatar">
+                    <img src="<?= esc(avatarUrl(session('user')['avatar_path'] ?? null), 'attr') ?>" alt="User Avatar" class="user-avatar">
                     <div class="user-brief">
                         <span class="user-name">[EIKIN RIKIKAWA]</span>
                         <span class="user-role">[OTTER CEO]</span>
@@ -129,7 +129,7 @@
                 </button>
                 <div class="dropdown-menu dropdown-menu-end user-menu">
                     <div class="user-menu-header">
-                        <img src="<?= base_url('assets/img/profile-img.webp') ?>" alt="User Avatar" class="user-menu-avatar">
+                        <img src="<?= esc(avatarUrl(session('user')['avatar_path'] ?? null), 'attr') ?>" alt="User Avatar" class="user-menu-avatar">
                         <div class="user-menu-info">
                             <div class="user-menu-name">[EIKIN RIKIKAWA]</div>
                             <div class="user-menu-email">[eikin@otternova.com]</div>
@@ -232,7 +232,7 @@
     <div class="sidebar-footer">
         <div class="sidebar-footer-user">
             <a href="<?= base_url('admin/profile') ?>" class="sidebar-footer-profile">
-                <img src="<?= base_url('assets/img/profile-img.webp') ?>" alt="User Avatar" class="sidebar-footer-avatar">
+                <img src="<?= esc(avatarUrl(session('user')['avatar_path'] ?? null), 'attr') ?>" alt="User Avatar" class="sidebar-footer-avatar">
                 <div class="sidebar-footer-info">
                     <div class="sidebar-footer-name">[EIKIN RIKIKAWA]</div>
                     <div class="sidebar-footer-role">[OTTER CEO]</div>

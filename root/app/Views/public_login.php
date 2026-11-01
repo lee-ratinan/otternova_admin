@@ -77,6 +77,18 @@
                     <button type="submit" class="btn btn-primary w-100">Verify</button>
                     <button type="button" id="otp-back" class="btn btn-link w-100">Back to sign in</button>
                 </form>
+                <form id="password-form" class="fauth-form d-none" action="<?= base_url('change-password') ?>" method="post" novalidate>
+                    <div class="fauth-field">
+                        <label for="new_password" class="form-label">New password</label>
+                        <input type="password" class="form-control" id="new_password" name="new_password" placeholder="Enter a new password" minlength="8" autocomplete="new-password" required>
+                    </div>
+                    <div class="fauth-field">
+                        <label for="confirm_password" class="form-label">Confirm new password</label>
+                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" placeholder="Enter the new password again" minlength="8" autocomplete="new-password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Change Password</button>
+                    <button type="button" id="password-back" class="btn btn-link w-100">Back to sign in</button>
+                </form>
                 <p class="fauth-foot-text">Don’t have your account? Forget your password? Tell your boss!</p>
             </div>
             <footer class="footer-centered">
@@ -107,6 +119,7 @@
 
   var loginForm = document.getElementById('login-form');
   var otpForm = document.getElementById('otp-form');
+  var passwordForm = document.getElementById('password-form');
   var alertBox = document.getElementById('login-alert');
 
   function showAlert(type, message) {
@@ -122,7 +135,8 @@
   function showStep(step) {
     loginForm.classList.toggle('d-none', step !== 'login');
     otpForm.classList.toggle('d-none', step !== 'otp');
-    (step === 'otp' ? otpForm.otp : loginForm.email).focus();
+    passwordForm.classList.toggle('d-none', step !== 'password');
+    ({ login: loginForm.email, otp: otpForm.otp, password: passwordForm.new_password })[step].focus();
   }
 
   function post(form) {
@@ -151,6 +165,15 @@
   function handleSuccess(body) {
     if (body.status === 'success' && body.redirect) {
       window.location.href = body.redirect;
+      return true;
+    }
+    // the password has expired: no session until a new one is set
+    if (body.status === 'password_change_required') {
+      loginForm.password.value = '';
+      otpForm.otp.value = '';
+      passwordForm.reset();
+      showStep('password');
+      showAlert('warning', body.message);
       return true;
     }
     return false;
@@ -195,9 +218,36 @@
     });
   });
 
-  document.getElementById('otp-back').addEventListener('click', function () {
-    hideAlert();
-    showStep('login');
+  passwordForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var confirm = passwordForm.confirm_password;
+    confirm.setCustomValidity(confirm.value === passwordForm.new_password.value ? '' : 'The new passwords do not match.');
+    if (!passwordForm.reportValidity()) {
+      return;
+    }
+    post(passwordForm).then(function (res) {
+      if (handleSuccess(res.body)) {
+        return;
+      }
+      // 410: the password change has expired, so sign in again
+      if (res.code === 410) {
+        passwordForm.reset();
+        showStep('login');
+      }
+      showAlert('danger', res.body.message || 'Unable to change your password. Please try again.');
+    });
+  });
+
+  passwordForm.confirm_password.addEventListener('input', function () {
+    this.setCustomValidity('');
+  });
+
+  ['otp-back', 'password-back'].forEach(function (id) {
+    document.getElementById(id).addEventListener('click', function () {
+      passwordForm.reset();
+      hideAlert();
+      showStep('login');
+    });
   });
 })();
 </script>

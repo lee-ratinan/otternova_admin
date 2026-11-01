@@ -12,6 +12,27 @@
  * Handles sidebar, mobile menu, search, scroll to top, etc.
  */
 
+/**
+ * Format a UTC datetime from the API ('2026-11-01 08:30:00', or ISO 8601) in the viewer's own timezone and locale.
+ * The API stores and returns every time in UTC; accounts carry no timezone.
+ * Returns the input unchanged when it cannot be parsed.
+ */
+window.formatLocalDateTime = function (utc, options) {
+  if (utc === null || utc === undefined || utc === '') return '';
+  let iso = String(utc).trim().replace(' ', 'T');
+  if (!/(Z|[+-]\d{2}:?\d{2})$/.test(iso)) iso += 'Z'; // no offset: the API means UTC
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return String(utc);
+  return new Intl.DateTimeFormat(undefined, options || { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+};
+
+/** Convert every <time data-utc datetime="..."> (see localTime() in html_helper.php) to the viewer's timezone */
+function initLocalTimes(root = document) {
+  root.querySelectorAll('time[data-utc]').forEach(function (el) {
+    el.textContent = window.formatLocalDateTime(el.getAttribute('datetime'));
+  });
+}
+
 function initContentCollapse(selector = '.content-collapse') {
   document.querySelectorAll(selector).forEach(function (element) {
     // Avoid processing the same element twice
@@ -444,4 +465,5 @@ function initContentCollapse(selector = '.content-collapse') {
     }
   });
   initContentCollapse();
+  initLocalTimes();
 })();

@@ -2,6 +2,7 @@
 
 namespace App\Controllers;
 
+use App\Models\AuthAccountModel;
 use App\Models\AuthMasterModel;
 use App\Models\ClientMasterModel;
 use App\Models\StaffMasterModel;
@@ -53,7 +54,7 @@ class Admin extends BaseController
     {
         $authModel = new AuthMasterModel();
         $fields    = $authModel->getConfiguration();
-        unset($fields['uid'], $fields['admin_notes']);
+        unset($fields['uid'], $fields['admin_notes'], $fields['avatar_path']); // avatar_path: an image path, not a column to read
         $columns   = AuthMasterModel::toColumns($fields);
         // the select fields double as filters, querying the same column the table orders/searches on
         $filters   = AuthMasterModel::toFilters($fields, ['otp_mode', 'account_status', 'account_type']);
@@ -175,7 +176,7 @@ class Admin extends BaseController
         }
         // staff profiles pick their department and line manager from lists the API provides
         $options    = AuthMasterModel::TYPE_STAFF === $type ? $this->staffFormOptions('view' === $mode ? $uid : null) : [];
-        $sections   = $this->accountFormSections($type, $options);
+        $sections   = $this->accountFormSections($type, $options, $values['avatar_path'] ?? null);
         $formConfig = [
             'form_id'  => 'account-form',
             'title'    => ['create' => 'New Account', 'view' => 'Account Detail'][$mode],
@@ -220,14 +221,15 @@ class Admin extends BaseController
         $isNew = '' === $uid;
 
         // only the fields the form can show are forwarded; the form holds the profile of one account type only
+        // read-only fields (avatar_path, set by the avatar upload) are never sent
         $authModel   = new AuthMasterModel();
-        $accountKeys = array_diff(array_keys($authModel->getConfiguration()), $isNew
+        $accountKeys = array_diff(array_keys($authModel->getConfiguration()), AuthAccountModel::FORM_ACCOUNT_READONLY, $isNew
             ? ['uid', 'account_type']
             : ['uid', 'account_type', 'email_address']); // fixed once the account exists
         $profileKeys = array_diff(array_unique(array_merge(
             array_keys((new StaffMasterModel())->getConfiguration()),
             array_keys((new ClientMasterModel())->getConfiguration())
-        )), ['auth_id', 'avatar_path']);
+        )), ['auth_id']);
         $account = array_intersect_key($post, array_flip($accountKeys));
         if ($isNew) {
             $account['account_type'] = AuthMasterModel::TYPE_STAFF;
@@ -297,11 +299,19 @@ class Admin extends BaseController
      * Profile fields missing from the groups below are appended to the last group, so new model fields still show.
      * @param string $type    auth_master.account_type
      * @param array  $options staff only: ['departments' => [id => label], 'managers' => [staff id => label]], see staffFormOptions()
+     * @param string|null $avatarPath auth_master.avatar_path, shown as a read-only preview (null = default avatar)
      * @return array [['title', 'subtitle', 'fields'], ...]
      */
-    private function accountFormSections(string $type, array $options = []): array
+    private function accountFormSections(string $type, array $options = [], ?string $avatarPath = null): array
     {
         $account = (new AuthMasterModel())->getConfiguration();
+        // avatar_path is never edited here (a separate upload sets it): shown as an image without an input, so it is not submitted
+        $account['avatar_path'] = [
+            'type'    => 'html',
+            'show_in' => ['edit', 'view'],
+            'html'    => '<div class="row mb-3"><div class="col-sm-4 text-sm-end">' . esc($account['avatar_path']['label']) . '</div>'
+                . '<div class="col-sm-8"><img src="' . esc(avatarUrl($avatarPath), 'attr') . '" alt="" class="rounded-circle" width="64" height="64"></div></div>',
+        ];
         $account['uid']['show_in']               = ['view']; // submitted through the hidden id field instead
         $account['email_address']['readonly_in'] = ['edit'];
         $account['account_type']['disabled_in']  = ['create', 'edit']; // create: always staff, edit: fixed
@@ -318,7 +328,7 @@ class Admin extends BaseController
                 'Personal'          => ['legal_first_name', 'legal_middle_name', 'legal_last_name', 'preferred_name', 'gender', 'date_of_birth', 'nationality_code', 'national_id_type', 'national_id_number', 'tax_id_number'],
                 'Address'           => ['address_line_1', 'address_line_2', 'address_city', 'subdivision_code', 'postal_code', 'country_code'],
                 'Emergency Contact' => ['emergency_contact_name', 'emergency_contact_relation', 'emergency_contact_telephone'],
-                'Preferences'       => ['preferred_language', 'timezone', 'status_message', 'bio'],
+                'Preferences'       => ['preferred_language', 'status_message', 'bio'],
                 'Internal'          => ['hr_notes'],
             ];
         } elseif (AuthMasterModel::TYPE_CLIENT === $type) {
@@ -326,13 +336,13 @@ class Admin extends BaseController
             $profile = (new ClientMasterModel())->getConfiguration();
             $groups  = [
                 'Personal'    => ['legal_first_name', 'legal_middle_name', 'legal_last_name', 'display_name', 'gender', 'date_of_birth', 'nationality_code', 'national_id_type', 'national_id_number'],
-                'Preferences' => ['preferred_language', 'timezone', 'status_message', 'status_emoji', 'bio', 'marketing_opt_in'],
+                'Preferences' => ['preferred_language', 'status_message', 'status_emoji', 'bio', 'marketing_opt_in'],
                 'Internal'    => ['internal_notes'],
             ];
         } else {
             return $sections;
         }
-        unset($profile['auth_id'], $profile['avatar_path']); // auth_id is set by the API, avatars come later
+        unset($profile['auth_id']); // auth_id is set by the API
 
         $fields = [];
         foreach ($groups as $heading => $names) {
@@ -574,7 +584,7 @@ class Admin extends BaseController
                     ['data'       => 'is_active', 'title' => 'Active', 'db' => 'p.is_active', 'type' => 'boolean',
                      'searchable' => false
                     ],
-                    ['data' => 'created_at', 'title' => 'Created', 'db' => 'p.created_at', 'searchable' => false],
+                    ['data' => 'created_at', 'title' => 'Created', 'db' => 'p.created_at', 'type' => 'datetime', 'searchable' => false],
                 ],
                 'filters' => [
                     ['name' => 'status', 'type' => 'select', 'label' => 'Status', 'column' => 'p.status',
