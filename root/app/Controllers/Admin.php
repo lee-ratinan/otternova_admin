@@ -173,7 +173,9 @@ class Admin extends BaseController
             $values = (array) ($body['data']['account'] ?? []) + (array) ($body['data']['profile'] ?? []);
             $type   = (string) ($values['account_type'] ?? '');
         }
-        $sections   = $this->accountFormSections($type);
+        // staff profiles pick their department and line manager from lists the API provides
+        $options    = AuthMasterModel::TYPE_STAFF === $type ? $this->staffFormOptions('view' === $mode ? $uid : null) : [];
+        $sections   = $this->accountFormSections($type, $options);
         $formConfig = [
             'form_id'  => 'account-form',
             'title'    => ['create' => 'New Account', 'view' => 'Account Detail'][$mode],
@@ -193,7 +195,7 @@ class Admin extends BaseController
             'fields'   => array_merge(...array_column($sections, 'fields')),
         ];
         $data       = [
-            'page_title'  => $values['full_name'],
+            'page_title'  => $values['full_name'] ?? 'New Account',
             'slug'        => 'account-edit',
             'breadcrumbs' => [
                 base_url('admin/accounts') => 'Accounts',
@@ -293,10 +295,11 @@ class Admin extends BaseController
     /**
      * Cards of the account form: the auth_master fields, then the profile of the account type grouped under headings.
      * Profile fields missing from the groups below are appended to the last group, so new model fields still show.
-     * @param string $type auth_master.account_type
+     * @param string $type    auth_master.account_type
+     * @param array  $options staff only: ['departments' => [id => label], 'managers' => [staff id => label]], see staffFormOptions()
      * @return array [['title', 'subtitle', 'fields'], ...]
      */
-    private function accountFormSections(string $type): array
+    private function accountFormSections(string $type, array $options = []): array
     {
         $account = (new AuthMasterModel())->getConfiguration();
         $account['uid']['show_in']               = ['view']; // submitted through the hidden id field instead
@@ -308,6 +311,8 @@ class Admin extends BaseController
         if (AuthMasterModel::TYPE_STAFF === $type) {
             $title   = 'Staff Profile';
             $profile = (new StaffMasterModel())->getConfiguration();
+            $profile['department_id'] = ['type' => 'select', 'options' => $options['departments'] ?? []] + $profile['department_id'];
+            $profile['manager_staff_id'] = ['type' => 'select', 'options' => $options['managers'] ?? []] + $profile['manager_staff_id'];
             $groups  = [
                 'Employment'        => ['employee_code', 'job_title', 'department_id', 'manager_staff_id', 'employment_type', 'employment_status', 'employment_start_date', 'probation_end_date', 'employment_end_date', 'work_country_code', 'work_email_address', 'work_telephone_number'],
                 'Personal'          => ['legal_first_name', 'legal_middle_name', 'legal_last_name', 'preferred_name', 'gender', 'date_of_birth', 'nationality_code', 'national_id_type', 'national_id_number', 'tax_id_number'],
@@ -342,6 +347,43 @@ class Admin extends BaseController
         $sections[] = ['title' => $title, 'subtitle' => '', 'fields' => array_merge($fields, array_values($profile))];
 
         return $sections;
+    }
+
+    /**
+     * Select options of the staff profile, from LINK_INTERNAL_API: departments (v1/staff/departments)
+     * and line managers (v1/staff/staff-members, i.e. staff accounts that have a staff_master row)
+     * @param string|null $exceptUid account being edited, which cannot be its own line manager
+     * @return array ['departments' => [id => label], 'managers' => [staff_master.id => label]]
+     */
+    private function staffFormOptions(?string $exceptUid): array
+    {
+        [$code, $body] = $this->callApi('v1/staff/departments', []);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            throw new RuntimeException($body['message'] ?? 'Could not load the departments.');
+        }
+        $departments = [];
+        foreach ((array) ($body['data']['rows'] ?? []) as $row) {
+            $departments[$row['id']] = $row['department_name'] . ' (' . $row['department_code'] . ')';
+        }
+
+        [$code, $body] = $this->callApi('v1/staff/staff-members', []);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            throw new RuntimeException($body['message'] ?? 'Could not load the line managers.');
+        }
+        $managers = [];
+        foreach ((array) ($body['data']['rows'] ?? []) as $row) {
+            if ($row['uid'] === $exceptUid) {
+                continue;
+            }
+            $label = $row['full_name'] . ' (' . $row['email_address'] . ')';
+            // inactive staff stay selectable so a current manager who has left still shows by name
+            if (($row['account_status'] ?? AuthMasterModel::STATUS_ACTIVE) !== AuthMasterModel::STATUS_ACTIVE) {
+                $label .= ' - ' . lang('AuthMaster.enum.account_status.' . $row['account_status']);
+            }
+            $managers[$row['id']] = $label;
+        }
+
+        return ['departments' => $departments, 'managers' => $managers];
     }
 
     /**
