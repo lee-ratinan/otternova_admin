@@ -193,8 +193,8 @@ class Admin extends BaseController
             'fields'   => array_merge(...array_column($sections, 'fields')),
         ];
         $data       = [
-            'page_title'  => 'Account',
-            'slug'        => 'account',
+            'page_title'  => $values['full_name'],
+            'slug'        => 'account-edit',
             'breadcrumbs' => [
                 base_url('admin/accounts') => 'Accounts',
             ],
