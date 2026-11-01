@@ -624,7 +624,7 @@ if (! function_exists('fb_field')) {
 
 if (! function_exists('fb_fields')) {
     /**
-     * All normalised items (inputs + headings/dividers/html) visible in a pane.
+     * All normalized items (inputs + headings/dividers/html) visible in a pane.
      * $fields limits it to a subset (e.g. one card of a multi-card form); default = $form['fields'].
      */
     function fb_fields(array $form, string $pane = 'edit', ?array $fields = null): array
