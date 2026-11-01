@@ -3,7 +3,11 @@
 namespace App\Controllers;
 
 use App\Models\AuthMasterModel;
+use App\Models\ClientMasterModel;
+use App\Models\StaffMasterModel;
+use CodeIgniter\Exceptions\PageNotFoundException;
 use CodeIgniter\HTTP\ResponseInterface;
+use RuntimeException;
 use Throwable;
 
 class Admin extends BaseController
@@ -29,7 +33,8 @@ class Admin extends BaseController
             ]);
             $code = $response->getStatusCode();
             $body = json_decode($response->getBody(), true);
-            if (! is_array($body) || $code === 404 || $code >= 500) {
+            // a 404 without the API's own error body means the endpoint is missing, not the record
+            if (! is_array($body) || $code >= 500 || ($code === 404 && ($body['status'] ?? '') !== 'error')) {
                 log_message('error', 'LINK_INTERNAL_API ' . $endpoint . ' returned HTTP ' . $code);
                 return [503, ['message' => 'The service is unavailable. Please try again later.']];
             }
@@ -146,42 +151,46 @@ class Admin extends BaseController
         ));
     }
 
+    /**
+     * Account form: 'create' opens an empty staff account, any other value is the uid of the account to view
+     * (the Edit button switches the same page to edit mode)
+     * @param string $uid
+     * @return string
+     */
     public function accountsEdit(string $uid): string
     {
+        $mode   = 'create' === $uid ? 'create' : 'view';
+        $type   = AuthMasterModel::TYPE_STAFF; // new accounts are always staff
         $values = [];
-        $mode   = 'create';
-        if ('create' != $uid) {
+        if ('view' === $mode) {
+            [$code, $body] = $this->callApi('v1/staff/account', ['uid' => $uid]);
+            if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+                throw $code === 404
+                    ? PageNotFoundException::forPageNotFound($body['message'] ?? null)
+                    : new RuntimeException($body['message'] ?? 'Could not load the account.');
+            }
             // keyed by field name, as the form looks values up by the field's 'name'
-            $values = [
-                'id'               => 15,
-                'uid'              => 'eikinotternovacom',
-                'email_address'    => 'eikin@otternova.com',
-                'telephone_number' => '+6597754577',
-                'password_expiry'  => '2027-11-15',
-                'full_name'        => '力川栄欽',
-                'otp_mode'         => 'E',
-                'account_status'   => 'A',
-                'account_type'     => 'S',
-                'admin_notes'      => 'He is the CEO!',
-            ];
-            $mode   = 'view';
+            $values = (array) ($body['data']['account'] ?? []) + (array) ($body['data']['profile'] ?? []);
+            $type   = (string) ($values['account_type'] ?? '');
         }
-        $authModel  = new AuthMasterModel();
+        $sections   = $this->accountFormSections($type);
         $formConfig = [
             'form_id'  => 'account-form',
-            'title'    => ['create' => 'New Account', 'edit' => 'Edit Account', 'view' => 'Account Detail'][$mode],
+            'title'    => ['create' => 'New Account', 'view' => 'Account Detail'][$mode],
             'subtitle' => 'Fields marked with * are required',
             'mode'     => $mode,
-            'id'       => $values['id'] ?? 0,
+            'id_field' => 'uid',
+            'id'       => $values['uid'] ?? '',
             'method'   => 'POST',
+            'locale'   => LOCALE,
             'urls'     => [
                 'submit' => base_url('admin/accounts/save'),
                 'delete' => base_url('admin/accounts/delete'),
-                'edit'   => base_url('admin/accounts/edit/' . $uid),
+                'edit'   => base_url('admin/accounts/edit/' . rawurlencode($uid)),
                 'list'   => base_url('admin/accounts'),
             ],
             'values'   => $values,
-            'fields'   => array_values($authModel->getConfiguration()),
+            'fields'   => array_merge(...array_column($sections, 'fields')),
         ];
         $data       = [
             'page_title'  => 'Account',
@@ -190,23 +199,149 @@ class Admin extends BaseController
                 base_url('admin/accounts') => 'Accounts',
             ],
             'mode'        => $mode,
-            'formConfig'  => $formConfig
+            'formConfig'  => $formConfig,
+            'sections'    => $sections,
         ];
-        return view('generic_form', $data);
+        return view('admin_accounts_edit', $data);
     }
 
     /**
-     * Save an account (create or edit)
-     * TEST ONLY: nothing is validated or saved yet, it always reports success to the form
+     * Save an account: an empty uid creates a staff account, otherwise the account with that uid is updated.
+     * Forwarded to LINK_INTERNAL_API v1/staff/account/update, which validates and decides the profile table
+     * from the stored account_type
      * @return ResponseInterface
      */
     public function accountsEditPost(): ResponseInterface
     {
+        $post  = (array) $this->request->getPost();
+        $uid   = trim((string) ($post['uid'] ?? ''));
+        $isNew = '' === $uid;
+
+        // only the fields the form can show are forwarded; the form holds the profile of one account type only
+        $authModel   = new AuthMasterModel();
+        $accountKeys = array_diff(array_keys($authModel->getConfiguration()), $isNew
+            ? ['uid', 'account_type']
+            : ['uid', 'account_type', 'email_address']); // fixed once the account exists
+        $profileKeys = array_diff(array_unique(array_merge(
+            array_keys((new StaffMasterModel())->getConfiguration()),
+            array_keys((new ClientMasterModel())->getConfiguration())
+        )), ['auth_id', 'avatar_path']);
+        $account = array_intersect_key($post, array_flip($accountKeys));
+        if ($isNew) {
+            $account['account_type'] = AuthMasterModel::TYPE_STAFF;
+        }
+
+        [$code, $body] = $this->callApi('v1/staff/account/update', [
+            'uid'     => $isNew ? null : $uid,
+            'account' => $account,
+            'profile' => array_intersect_key($post, array_flip($profileKeys)),
+        ]);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            // the API prefixes errors with their group (account.email_address); the form only knows the field name
+            $errors = [];
+            foreach ((array) ($body['errors'] ?? []) as $key => $message) {
+                $errors[preg_replace('/^.*\./', '', (string) $key)] = $message;
+            }
+            return $this->response->setStatusCode($code === 200 ? 422 : $code)->setJSON([
+                'success'   => false,
+                'message'   => $body['message'] ?? 'Could not save the account. Please try again.',
+                'errors'    => $errors ?: null,
+                'csrf_hash' => csrf_hash(), // keeps the form's token fresh when CSRF regenerates
+            ]);
+        }
+
+        $savedUid = (string) ($body['data']['uid'] ?? $uid);
         return $this->response->setJSON([
             'success'   => true,
-            'message'   => 'Account saved (test only, nothing was written).',
-            'csrf_hash' => csrf_hash(), // keeps the form's token fresh when CSRF regenerates
+            'message'   => $body['message'] ?? 'Account saved.',
+            'redirect'  => base_url('admin/accounts/edit/' . rawurlencode($savedUid)),
+            'csrf_hash' => csrf_hash(),
         ]);
+    }
+
+    /**
+     * Delete an account (and its profile) through LINK_INTERNAL_API v1/staff/account/delete
+     * @return ResponseInterface
+     */
+    public function accountsDelete(): ResponseInterface
+    {
+        $uid = trim((string) $this->request->getPost('uid'));
+        if ('' === $uid) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'success'   => false,
+                'message'   => 'No account was selected.',
+                'csrf_hash' => csrf_hash(),
+            ]);
+        }
+
+        [$code, $body] = $this->callApi('v1/staff/account/delete', ['uid' => $uid]);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            return $this->response->setStatusCode($code === 200 ? 422 : $code)->setJSON([
+                'success'   => false,
+                'message'   => $body['message'] ?? 'Could not delete the account. Please try again.',
+                'csrf_hash' => csrf_hash(),
+            ]);
+        }
+        return $this->response->setJSON([
+            'success'   => true,
+            'message'   => $body['message'] ?? 'Account deleted.',
+            'redirect'  => base_url('admin/accounts'),
+            'csrf_hash' => csrf_hash(),
+        ]);
+    }
+
+    /**
+     * Cards of the account form: the auth_master fields, then the profile of the account type grouped under headings.
+     * Profile fields missing from the groups below are appended to the last group, so new model fields still show.
+     * @param string $type auth_master.account_type
+     * @return array [['title', 'subtitle', 'fields'], ...]
+     */
+    private function accountFormSections(string $type): array
+    {
+        $account = (new AuthMasterModel())->getConfiguration();
+        $account['uid']['show_in']               = ['view']; // submitted through the hidden id field instead
+        $account['email_address']['readonly_in'] = ['edit'];
+        $account['account_type']['disabled_in']  = ['create', 'edit']; // create: always staff, edit: fixed
+        $account['account_type']['default']      = AuthMasterModel::TYPE_STAFF;
+        $sections = [['title' => 'Account', 'subtitle' => '', 'fields' => array_values($account)]];
+
+        if (AuthMasterModel::TYPE_STAFF === $type) {
+            $title   = 'Staff Profile';
+            $profile = (new StaffMasterModel())->getConfiguration();
+            $groups  = [
+                'Employment'        => ['employee_code', 'job_title', 'department_id', 'manager_staff_id', 'employment_type', 'employment_status', 'employment_start_date', 'probation_end_date', 'employment_end_date', 'work_country_code', 'work_email_address', 'work_telephone_number'],
+                'Personal'          => ['legal_first_name', 'legal_middle_name', 'legal_last_name', 'preferred_name', 'gender', 'date_of_birth', 'nationality_code', 'national_id_type', 'national_id_number', 'tax_id_number'],
+                'Address'           => ['address_line_1', 'address_line_2', 'address_city', 'subdivision_code', 'postal_code', 'country_code'],
+                'Emergency Contact' => ['emergency_contact_name', 'emergency_contact_relation', 'emergency_contact_telephone'],
+                'Preferences'       => ['preferred_language', 'timezone', 'status_message', 'bio'],
+                'Internal'          => ['hr_notes'],
+            ];
+        } elseif (AuthMasterModel::TYPE_CLIENT === $type) {
+            $title   = 'Client Profile';
+            $profile = (new ClientMasterModel())->getConfiguration();
+            $groups  = [
+                'Personal'    => ['legal_first_name', 'legal_middle_name', 'legal_last_name', 'display_name', 'gender', 'date_of_birth', 'nationality_code', 'national_id_type', 'national_id_number'],
+                'Preferences' => ['preferred_language', 'timezone', 'status_message', 'status_emoji', 'bio', 'marketing_opt_in'],
+                'Internal'    => ['internal_notes'],
+            ];
+        } else {
+            return $sections;
+        }
+        unset($profile['auth_id'], $profile['avatar_path']); // auth_id is set by the API, avatars come later
+
+        $fields = [];
+        foreach ($groups as $heading => $names) {
+            $fields[] = ['type' => 'heading', 'label' => $heading];
+            foreach ($names as $name) {
+                if (isset($profile[$name])) {
+                    $fields[] = $profile[$name];
+                    unset($profile[$name]);
+                }
+            }
+        }
+        $sections[] = ['title' => $title, 'subtitle' => '', 'fields' => array_merge($fields, array_values($profile))];
+
+        return $sections;
     }
 
     /**
