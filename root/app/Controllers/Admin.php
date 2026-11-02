@@ -15,6 +15,24 @@ class Admin extends BaseController
 {
 
     /**
+     * Profile fields the account holder maintains on their own profile: shown disabled here and never forwarded on save
+     */
+    private const STAFF_SELF_MANAGED  = ['preferred_name', 'gender', 'date_of_birth', 'nationality_code',
+        'address_line_1', 'address_line_2', 'address_city', 'subdivision_code', 'postal_code', 'country_code',
+        'emergency_contact_name', 'emergency_contact_relation', 'emergency_contact_telephone',
+        'preferred_language', 'status_message', 'bio'];
+    private const CLIENT_SELF_MANAGED = ['display_name', 'gender', 'date_of_birth', 'nationality_code',
+        'preferred_language', 'status_message', 'status_emoji', 'bio', 'marketing_opt_in'];
+
+    /**
+     * Account fields the form cannot change (password_expiry is set by the password flow)
+     * and the select values only the system sets (telephone OTP is not available yet; pending/blocked are automatic)
+     */
+    private const ACCOUNT_SYSTEM_MANAGED = ['password_expiry'];
+    private const OTP_MODE_DISABLED      = [AuthMasterModel::OTP_TELEPHONE];
+    private const STATUS_DISABLED        = [AuthMasterModel::STATUS_PENDING, AuthMasterModel::STATUS_BLOCKED];
+
+    /**
      * POST JSON to LINK_INTERNAL_API with the signed-in user's JWT and return [http status, decoded body]
      * @param string $endpoint
      * @param array $payload
@@ -223,14 +241,21 @@ class Admin extends BaseController
         // only the fields the form can show are forwarded; the form holds the profile of one account type only
         // read-only fields (avatar_path, set by the avatar upload) are never sent
         $authModel   = new AuthMasterModel();
-        $accountKeys = array_diff(array_keys($authModel->getConfiguration()), AuthAccountModel::FORM_ACCOUNT_READONLY, $isNew
+        $accountKeys = array_diff(array_keys($authModel->getConfiguration()), AuthAccountModel::FORM_ACCOUNT_READONLY, self::ACCOUNT_SYSTEM_MANAGED, $isNew
             ? ['uid', 'account_type']
             : ['uid', 'account_type', 'email_address']); // fixed once the account exists
         $profileKeys = array_diff(array_unique(array_merge(
             array_keys((new StaffMasterModel())->getConfiguration()),
             array_keys((new ClientMasterModel())->getConfiguration())
-        )), ['auth_id']);
+        )), ['auth_id'], self::STAFF_SELF_MANAGED, self::CLIENT_SELF_MANAGED);
         $account = array_intersect_key($post, array_flip($accountKeys));
+        // the disabled select options are set by the system only
+        if (in_array((string) ($account['otp_mode'] ?? ''), self::OTP_MODE_DISABLED, true)) {
+            unset($account['otp_mode']);
+        }
+        if (in_array((string) ($account['account_status'] ?? ''), self::STATUS_DISABLED, true)) {
+            unset($account['account_status']);
+        }
         if ($isNew) {
             $account['account_type'] = AuthMasterModel::TYPE_STAFF;
         }
@@ -316,6 +341,12 @@ class Admin extends BaseController
         $account['email_address']['readonly_in'] = ['edit'];
         $account['account_type']['disabled_in']  = ['create', 'edit']; // create: always staff, edit: fixed
         $account['account_type']['default']      = AuthMasterModel::TYPE_STAFF;
+        foreach (self::ACCOUNT_SYSTEM_MANAGED as $name) {
+            $account[$name]['disabled_in'] = ['create', 'edit'];
+        }
+        // the system-only options stay listed (disabled) so a current value still shows
+        $account['otp_mode']['options']       = self::disableOptions($account['otp_mode']['options'], self::OTP_MODE_DISABLED);
+        $account['account_status']['options'] = self::disableOptions($account['account_status']['options'], self::STATUS_DISABLED);
         $sections = [['title' => 'Account', 'subtitle' => '', 'fields' => array_values($account)]];
 
         if (AuthMasterModel::TYPE_STAFF === $type) {
@@ -331,6 +362,7 @@ class Admin extends BaseController
                 'Preferences'       => ['preferred_language', 'status_message', 'bio'],
                 'Internal'          => ['hr_notes'],
             ];
+            $selfManaged = self::STAFF_SELF_MANAGED;
         } elseif (AuthMasterModel::TYPE_CLIENT === $type) {
             $title   = 'Client Profile';
             $profile = (new ClientMasterModel())->getConfiguration();
@@ -339,10 +371,17 @@ class Admin extends BaseController
                 'Preferences' => ['preferred_language', 'status_message', 'status_emoji', 'bio', 'marketing_opt_in'],
                 'Internal'    => ['internal_notes'],
             ];
+            $selfManaged = self::CLIENT_SELF_MANAGED;
         } else {
             return $sections;
         }
         unset($profile['auth_id']); // auth_id is set by the API
+        // disabled inputs are not submitted, so the save leaves these values as they are
+        foreach ($selfManaged as $name) {
+            if (isset($profile[$name])) {
+                $profile[$name]['disabled_in'] = ['create', 'edit'];
+            }
+        }
 
         $fields = [];
         foreach ($groups as $heading => $names) {
@@ -357,6 +396,21 @@ class Admin extends BaseController
         $sections[] = ['title' => $title, 'subtitle' => '', 'fields' => array_merge($fields, array_values($profile))];
 
         return $sections;
+    }
+
+    /**
+     * Turn value => label options into the form builder's list form, with the given values disabled
+     * @param array $options value => label
+     * @param array $disabled values that cannot be picked
+     * @return array [['value', 'label', 'disabled'], ...]
+     */
+    private static function disableOptions(array $options, array $disabled): array
+    {
+        $out = [];
+        foreach ($options as $value => $label) {
+            $out[] = ['value' => $value, 'label' => $label, 'disabled' => in_array((string) $value, $disabled, true)];
+        }
+        return $out;
     }
 
     /**

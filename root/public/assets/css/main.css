@@ -5105,7 +5105,7 @@ button {
 
 .form-control:disabled,
 .form-control[readonly] {
-  background-color: var(--background-color);
+  background-color: var(--bs-secondary-bg);
   opacity: 0.7;
   cursor: not-allowed;
 }
