@@ -7,6 +7,7 @@ use App\Models\AuthMasterModel;
 use App\Models\ClientMasterModel;
 use App\Models\StaffMasterModel;
 use CodeIgniter\Exceptions\PageNotFoundException;
+use CURLFile;
 use CodeIgniter\HTTP\ResponseInterface;
 use RuntimeException;
 use Throwable;
@@ -43,16 +44,17 @@ class Admin extends BaseController
         'hr_notes'];
 
     /**
-     * POST JSON to LINK_INTERNAL_API with the signed-in user's JWT and return [http status, decoded body]
+     * POST to LINK_INTERNAL_API with the signed-in user's JWT and return [http status, decoded body]
      * @param string $endpoint
      * @param array $payload
+     * @param bool $multipart true: sent as multipart/form-data (files as CURLFile), otherwise as JSON
      * @return array
      */
-    private function callApi(string $endpoint, array $payload): array
+    private function callApi(string $endpoint, array $payload, bool $multipart = false): array
     {
         try {
             $response = service('curlrequest')->post(getenv('LINK_INTERNAL_API') . $endpoint, [
-                'json'        => $payload,
+                ($multipart ? 'multipart' : 'json') => $payload,
                 'headers'     => [
                     'Accept'        => 'application/json',
                     'Authorization' => 'Bearer ' . session()->get('access_token'),
@@ -514,6 +516,12 @@ class Admin extends BaseController
         $values   = (array) ($body['data']['account'] ?? []) + (array) ($body['data']['profile'] ?? []);
         unset($values['admin_notes'], $values['hr_notes']); // not shown to the account holder, see accountFormSections()
         $sections = $this->accountFormSections(AuthMasterModel::TYPE_STAFF, $this->staffFormOptions($uid), null, true);
+        // the session copy carries a version after an upload (see imageUpload()), so the new picture is not a cached one
+        $avatar   = (string) ($values['avatar_path'] ?? '');
+        $session  = (string) (session('user')['avatar_path'] ?? '');
+        if ('' !== $avatar && strtok($session, '?') === $avatar) {
+            $avatar = $session;
+        }
         $data     = [
             'page_title' => 'Profile',
             'slug'       => 'profile',
@@ -533,8 +541,71 @@ class Admin extends BaseController
                 'values'   => $values,
                 'fields'   => array_merge(...array_column($sections, 'fields')),
             ],
+            // a stand-alone upload form: the API saves the picture to avatar_path of auth_master row 'id'
+            'extraForms' => [[
+                'form_id'   => 'profile-picture-form',
+                'title'     => 'Profile Picture',
+                'subtitle'  => 'A square image of at least 512 × 512 pixels works best',
+                'id_prefix' => 'picture-',
+                'id_field'  => 'id',
+                'id'        => (int) (session('user')['id'] ?? 0),
+                'urls'      => ['submit' => base_url('admin/image-upload')],
+                'values'    => ['used-for' => 'profile-picture', 'image-name' => $uid],
+                'fields'    => [
+                    ['name' => 'used-for', 'type' => 'hidden'],
+                    ['name' => 'image-name', 'type' => 'hidden'],
+                    ['name' => 'image', 'type' => 'file', 'label' => 'Profile picture', 'rules' => 'required', 'preview' => avatarUrl($avatar)],
+                ],
+            ]],
         ];
         return view('generic_form', $data);
+    }
+
+    /**
+     * Upload an image through LINK_INTERNAL_API v1/staff/image-upload, for the stand-alone upload forms:
+     * multipart { used-for, image-name, id, image }, forwarded as sent (the API checks who may change which row).
+     * A new picture of the signed-in staff member's own account also goes into the session for the layout.
+     * @return ResponseInterface
+     */
+    public function imageUpload(): ResponseInterface
+    {
+        $file = $this->request->getFile('image');
+        if (null === $file || ! $file->isValid()) {
+            $tooLarge = null !== $file && in_array($file->getError(), [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true);
+            $message  = $tooLarge ? 'The image is too large. Please choose a smaller one.' : 'Please choose an image.';
+            return $this->response->setStatusCode($tooLarge ? 413 : 422)->setJSON([
+                'success'   => false,
+                'message'   => $message,
+                'errors'    => ['image' => $message],
+                'csrf_hash' => csrf_hash(),
+            ]);
+        }
+
+        $usedFor = (string) $this->request->getPost('used-for');
+        $id      = (string) $this->request->getPost('id');
+        [$code, $body] = $this->callApi('v1/staff/image-upload', [
+            'used-for'   => $usedFor,
+            'image-name' => (string) $this->request->getPost('image-name'),
+            'id'         => $id,
+            'image'      => new CURLFile($file->getTempName(), $file->getMimeType(), $file->getClientName()),
+        ], true);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            return $this->saveFailed($code, $body, 'Could not upload the image. Please try again.');
+        }
+
+        // the file name stays the same on a re-upload, so the version makes browsers fetch the new image
+        $url  = (string) ($body['data']['url'] ?? '');
+        $url .= ('' === $url ? '' : '?v=' . time());
+        $user = (array) session('user');
+        if ('profile-picture' === $usedFor && '' !== $url && $id === (string) ($user['id'] ?? '')) {
+            session()->set('user', ['avatar_path' => $url] + $user);
+        }
+        return $this->response->setJSON([
+            'success'   => true,
+            'message'   => $body['message'] ?? 'Image uploaded.',
+            'url'       => $url,
+            'csrf_hash' => csrf_hash(),
+        ]);
     }
 
     /**

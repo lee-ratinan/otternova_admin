@@ -7,6 +7,9 @@
  *
  *   return view('generic_form', ['formConfig' => $formConfig]);
  *
+ * Optional: $extraForms, more form configs rendered below it, each with its own card and script
+ * (e.g. the stand-alone upload forms of 'file' fields).
+ *
  * Requirements in _layout: Bootstrap 5, Bootstrap Icons, toastr (JS + CSS).
  * Optional: SweetAlert2 (window.Swal) for a nicer delete confirmation; falls back to confirm().
  */
@@ -20,6 +23,10 @@ helper('form'); // loads app/Helpers/form_helper.php (all functions are prefixed
 
                 <?php // Whole card: header + create/edit/view fields + buttons, all from the config ?>
                 <?= fb_render($formConfig) ?>
+
+                <?php foreach ($extraForms ?? [] as $extraForm): ?>
+                    <div class="mt-4"><?= fb_render($extraForm) ?></div>
+                <?php endforeach ?>
 
                 <?php
                 /* ---------------------------------------------------------------------------
@@ -60,4 +67,7 @@ helper('form'); // loads app/Helpers/form_helper.php (all functions are prefixed
 <?php // Generates the JavaScript: validation on change, submit via fetch, toastr messages,
 // view <-> edit switching, delete confirmation and reset. ?>
 <?= fb_script($formConfig) ?>
+<?php foreach ($extraForms ?? [] as $extraForm): ?>
+    <?= fb_script($extraForm) ?>
+<?php endforeach ?>
 <?= $this->endSection() ?>
