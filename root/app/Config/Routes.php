@@ -11,23 +11,22 @@ $routes->get('logout', 'Home::logout');
 
 $routes->group('admin', ['filter' => 'auth'], static function($routes) {
     // Dashboard
-    $routes->get('/', 'Admin::dashboard'); // done prototyping
-    $routes->get('dashboard', 'Admin::dashboard'); // done prototyping
+    $routes->get('/', 'Admin::dashboard');
+    $routes->get('dashboard', 'Admin::dashboard');
     // Users
-    $routes->get('accounts', 'Admin::accounts'); // done prototyping
-    $routes->post('accounts', 'Admin::accountsList'); // done dummy data
+    $routes->get('accounts', 'Admin::accounts');
+    $routes->post('accounts', 'Admin::accountsList');
     $routes->get('accounts/create', 'Admin::accountsEdit/create');
     $routes->get('accounts/edit/(:any)', 'Admin::accountsEdit/$1');
     $routes->post('accounts/save', 'Admin::accountsEditPost');
     $routes->post('accounts/delete', 'Admin::accountsDelete');
-
+    $routes->get('profile', 'Admin::profile');
+    $routes->post('profile/save', 'Admin::profileEditPost');
 
 
 
 
     $routes->get('notifications', 'Admin::notifications');
-    $routes->get('profile', 'Admin::profile/view');
-    $routes->get('profile/edit', 'Admin::profile/edit');
     $routes->get('public-profile/(:any)', 'Admin::publicProfile/$1');
     $routes->get('inbox', 'Admin::inbox');
     // Our own users

@@ -33,6 +33,16 @@ class Admin extends BaseController
     private const STATUS_DISABLED        = [AuthMasterModel::STATUS_PENDING, AuthMasterModel::STATUS_BLOCKED];
 
     /**
+     * Fields the signed-in staff member cannot change on their own profile: shown disabled and never forwarded on save
+     */
+    private const OWN_ACCOUNT_LOCKED = ['email_address', 'password_expiry', 'account_status', 'account_type', 'admin_notes'];
+    private const OWN_STAFF_LOCKED   = ['employee_code', 'job_title', 'department_id', 'manager_staff_id',
+        'employment_type', 'employment_status', 'employment_start_date', 'probation_end_date', 'employment_end_date',
+        'work_country_code', 'work_email_address', 'work_telephone_number',
+        'legal_first_name', 'legal_middle_name', 'legal_last_name', 'national_id_type', 'national_id_number', 'tax_id_number',
+        'hr_notes'];
+
+    /**
      * POST JSON to LINK_INTERNAL_API with the signed-in user's JWT and return [http status, decoded body]
      * @param string $endpoint
      * @param array $payload
@@ -266,17 +276,7 @@ class Admin extends BaseController
             'profile' => array_intersect_key($post, array_flip($profileKeys)),
         ]);
         if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
-            // the API prefixes errors with their group (account.email_address); the form only knows the field name
-            $errors = [];
-            foreach ((array) ($body['errors'] ?? []) as $key => $message) {
-                $errors[preg_replace('/^.*\./', '', (string) $key)] = $message;
-            }
-            return $this->response->setStatusCode($code === 200 ? 422 : $code)->setJSON([
-                'success'   => false,
-                'message'   => $body['message'] ?? 'Could not save the account. Please try again.',
-                'errors'    => $errors ?: null,
-                'csrf_hash' => csrf_hash(), // keeps the form's token fresh when CSRF regenerates
-            ]);
+            return $this->saveFailed($code, $body, 'Could not save the account. Please try again.');
         }
 
         $savedUid = (string) ($body['data']['uid'] ?? $uid);
@@ -285,6 +285,28 @@ class Admin extends BaseController
             'message'   => $body['message'] ?? 'Account saved.',
             'redirect'  => base_url('admin/accounts/edit/' . rawurlencode($savedUid)),
             'csrf_hash' => csrf_hash(),
+        ]);
+    }
+
+    /**
+     * Form response of a failed v1/staff/account/update call
+     * @param int    $code     HTTP status of the API call
+     * @param array  $body     decoded API response
+     * @param string $fallback message when the API gives none
+     * @return ResponseInterface
+     */
+    private function saveFailed(int $code, array $body, string $fallback): ResponseInterface
+    {
+        // the API prefixes errors with their group (account.email_address); the form only knows the field name
+        $errors = [];
+        foreach ((array) ($body['errors'] ?? []) as $key => $message) {
+            $errors[preg_replace('/^.*\./', '', (string) $key)] = $message;
+        }
+        return $this->response->setStatusCode($code === 200 ? 422 : $code)->setJSON([
+            'success'   => false,
+            'message'   => $body['message'] ?? $fallback,
+            'errors'    => $errors ?: null,
+            'csrf_hash' => csrf_hash(), // keeps the form's token fresh when CSRF regenerates
         ]);
     }
 
@@ -325,23 +347,30 @@ class Admin extends BaseController
      * @param string $type    auth_master.account_type
      * @param array  $options staff only: ['departments' => [id => label], 'managers' => [staff id => label]], see staffFormOptions()
      * @param string|null $avatarPath auth_master.avatar_path, shown as a read-only preview (null = default avatar)
+     * @param bool   $own     true: the signed-in staff member's own profile, which locks a different set of fields and has no avatar
      * @return array [['title', 'subtitle', 'fields'], ...]
      */
-    private function accountFormSections(string $type, array $options = [], ?string $avatarPath = null): array
+    private function accountFormSections(string $type, array $options = [], ?string $avatarPath = null, bool $own = false): array
     {
         $account = (new AuthMasterModel())->getConfiguration();
-        // avatar_path is never edited here (a separate upload sets it): shown as an image without an input, so it is not submitted
-        $account['avatar_path'] = [
-            'type'    => 'html',
-            'show_in' => ['edit', 'view'],
-            'html'    => '<div class="row mb-3"><div class="col-sm-4 text-sm-end">' . esc($account['avatar_path']['label']) . '</div>'
-                . '<div class="col-sm-8"><img src="' . esc(avatarUrl($avatarPath), 'attr') . '" alt="" class="rounded-circle" width="64" height="64"></div></div>',
-        ];
-        $account['uid']['show_in']               = ['view']; // submitted through the hidden id field instead
-        $account['email_address']['readonly_in'] = ['edit'];
-        $account['account_type']['disabled_in']  = ['create', 'edit']; // create: always staff, edit: fixed
-        $account['account_type']['default']      = AuthMasterModel::TYPE_STAFF;
-        foreach (self::ACCOUNT_SYSTEM_MANAGED as $name) {
+        if ($own) {
+            unset($account['avatar_path']); // not on the own profile for now
+            $locked = self::OWN_ACCOUNT_LOCKED;
+        } else {
+            // avatar_path is never edited here (a separate upload sets it): shown as an image without an input, so it is not submitted
+            $account['avatar_path'] = [
+                'type'    => 'html',
+                'show_in' => ['edit', 'view'],
+                'html'    => '<div class="row mb-3"><div class="col-sm-4 text-sm-end">' . esc($account['avatar_path']['label']) . '</div>'
+                    . '<div class="col-sm-8"><img src="' . esc(avatarUrl($avatarPath), 'attr') . '" alt="" class="rounded-circle" width="64" height="64"></div></div>',
+            ];
+            $account['email_address']['readonly_in'] = ['edit'];
+            $account['account_type']['disabled_in']  = ['create', 'edit']; // create: always staff, edit: fixed
+            $account['account_type']['default']      = AuthMasterModel::TYPE_STAFF;
+            $locked = self::ACCOUNT_SYSTEM_MANAGED;
+        }
+        $account['uid']['show_in'] = ['view']; // submitted through the hidden id field instead
+        foreach ($locked as $name) {
             $account[$name]['disabled_in'] = ['create', 'edit'];
         }
         // the system-only options stay listed (disabled) so a current value still shows
@@ -362,7 +391,7 @@ class Admin extends BaseController
                 'Preferences'       => ['preferred_language', 'status_message', 'bio'],
                 'Internal'          => ['hr_notes'],
             ];
-            $selfManaged = self::STAFF_SELF_MANAGED;
+            $locked  = $own ? self::OWN_STAFF_LOCKED : self::STAFF_SELF_MANAGED;
         } elseif (AuthMasterModel::TYPE_CLIENT === $type) {
             $title   = 'Client Profile';
             $profile = (new ClientMasterModel())->getConfiguration();
@@ -371,13 +400,13 @@ class Admin extends BaseController
                 'Preferences' => ['preferred_language', 'status_message', 'status_emoji', 'bio', 'marketing_opt_in'],
                 'Internal'    => ['internal_notes'],
             ];
-            $selfManaged = self::CLIENT_SELF_MANAGED;
+            $locked  = self::CLIENT_SELF_MANAGED;
         } else {
             return $sections;
         }
         unset($profile['auth_id']); // auth_id is set by the API
         // disabled inputs are not submitted, so the save leaves these values as they are
-        foreach ($selfManaged as $name) {
+        foreach ($locked as $name) {
             if (isset($profile[$name])) {
                 $profile[$name]['disabled_in'] = ['create', 'edit'];
             }
@@ -464,116 +493,79 @@ class Admin extends BaseController
     }
 
     /**
-     * Profile page
-     * @param string $mode
+     * The signed-in staff member's own profile: the account form of their own uid, opened in view mode
+     * (the Edit button switches the same page to edit mode). Employment, legal and admin fields stay disabled.
      * @return string
      */
-    public function profile(string $mode): string
+    public function profile(): string
     {
-        $mode = (empty($mode)) ? 'view' : $mode;
-        $id   = 1; // user id
-        $values = [
-            'id' => $id, 'name' => 'Ergonomic chair', 'sku' => 'CH-001', 'category_id' => 3, 'price' => '249.90',
-            'release_date' => '2026-03-15', 'color' => '#198754', 'tags' => ['new', 'eco'], 'status' => 'P',
-            'is_active' => 1, 'notes' => "Line one\nLine two", 'internal_ref' => 'REF-77',
-        ];
-        $data = [
+        $uid = (string) (session('user')['uid'] ?? '');
+        [$code, $body] = $this->callApi('v1/staff/account', ['uid' => $uid]);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            throw new RuntimeException($body['message'] ?? 'Could not load your profile.');
+        }
+        // keyed by field name, as the form looks values up by the field's 'name'
+        $values   = (array) ($body['data']['account'] ?? []) + (array) ($body['data']['profile'] ?? []);
+        $sections = $this->accountFormSections(AuthMasterModel::TYPE_STAFF, $this->staffFormOptions($uid), null, true);
+        $data     = [
             'page_title' => 'Profile',
             'slug'       => 'profile',
-            'mode'       => $mode,
             'formConfig' => [
-                'form_id'  => 'product-form',
-                'title'    => ['create' => 'New Product', 'edit' => 'Edit Product', 'view' => 'Product Details'][$mode],
+                'form_id'  => 'profile-form',
+                'title'    => 'My Profile',
                 'subtitle' => 'Fields marked with * are required',
-                'mode'     => $mode,
-                'id'       => $id,
+                'mode'     => 'view',
+                'id_field' => 'uid',
+                'id'       => $uid,
                 'method'   => 'POST',
+                'locale'   => LOCALE,
                 'urls'     => [
-                    'submit' => site_url('formexample/save'),
-                    'delete' => site_url('formexample/delete'),
-                    'edit'   => site_url('formexample/edit/' . $id),
-                    'list'   => site_url('formexample'),
+                    'submit' => base_url('admin/profile/save'),
+                    'edit'   => base_url('admin/profile'),
                 ],
                 'values'   => $values,
-                'fields' => [
-                    ['type' => 'heading', 'label' => 'General'],
-                    [
-                        'name' => 'name',
-                        'type' => 'text',
-                        'label' => 'Product name',
-                        'placeholder' => 'e.g. Ergonomic chair',
-                        'help' => '3-80 characters',
-                        'rules' => 'required|min_length[3]|max_length[80]',
-                    ],
-                    [
-                        'name' => 'sku',
-                        'type' => 'text',
-                        'label' => 'SKU',
-                        'badge' => 'New',
-                        'readonly_in' => ['edit'],                       // editable on create only
-                        'rules' => 'required|alpha_dash|max_length[20]',
-                        'messages' => ['alpha_dash' => 'SKU may only contain letters, digits, - and _.'],
-                    ],
-                    [
-                        'name' => 'category_id',
-                        'type' => 'select',
-                        'label' => 'Category',
-                        'options' => [1 => 'Electronics', 2 => 'Books', 3 => 'Home & Garden'],   // value => label
-                        'attrs' => ['placeholder' => 'Choose a category'],
-                        'rules' => 'required',
-                    ],
-                    [
-                        'name' => 'price',
-                        'type' => 'number',
-                        'label' => 'Price',
-                        'attrs' => ['min' => 0, 'max' => 99999, 'step' => '0.01', 'required' => true],
-                        'help' => 'Two decimals max',
-                    ],
-                    [
-                        'name' => 'release_date', 'type' => 'date', 'label' => 'Release date', 'optional' => true,
-                    ],
-                    [
-                        'name' => 'color', 'type' => 'color', 'label' => 'Brand colour', 'optional' => true,
-                        'default' => '#0d6efd',
-                    ],
-                    ['type' => 'divider'],
-                    ['type' => 'heading', 'label' => 'Options'],
-                    [
-                        'name' => 'tags', 'type' => 'checkbox', 'label' => 'Tags', 'inline' => true,
-                        'options' => ['new' => 'New arrival', 'sale' => 'On sale', 'eco' => 'Eco friendly'],
-                        'rules' => 'required', 'messages' => ['required' => 'Pick at least one tag.'],
-                    ],
-                    [
-                        'name' => 'status', 'type' => 'radio', 'label' => 'Status', 'default' => 'D',
-                        'options' => [['value' => 'D', 'label' => 'Draft'], ['value' => 'P', 'label' => 'Published'], ['value' => 'A', 'label' => 'Archived', 'disabled' => true]],
-                        'rules' => 'required',
-                    ],
-                    [
-                        'name' => 'is_active', 'type' => 'switch', 'label' => 'Active', 'default' => 1,
-                        'view_labels' => ['on' => 'Active', 'off' => 'Inactive'],
-                    ],
-                    [
-                        'name' => 'notes', 'type' => 'textarea', 'label' => 'Notes', 'optional' => true,
-                        'attrs' => ['rows' => 4, 'maxlength' => 500],
-                    ],
-                    ['name' => 'internal_ref', 'type' => 'text', 'label' => 'Internal ref', 'attrs' => ['disabled' => true], 'show_in' => ['edit', 'view']],
-                ],
+                'fields'   => array_merge(...array_column($sections, 'fields')),
             ],
         ];
         return view('generic_form', $data);
     }
 
     /**
-     * Edit own profile page
-     * @return string
+     * Save the signed-in staff member's own profile through LINK_INTERNAL_API v1/staff/account/update.
+     * The uid comes from the session, never the form, and the locked fields are never forwarded
+     * @return ResponseInterface
      */
-    public function profileEdit(): string
+    public function profileEditPost(): ResponseInterface
     {
-        $data = [
-            'page_title' => 'Edit Profile',
-            'slug'       => 'profile-edit',
-        ];
-        return view('generic_form', $data);
+        $post = (array) $this->request->getPost();
+        $user = (array) session('user');
+        $uid  = (string) ($user['uid'] ?? '');
+
+        $accountKeys = array_diff(array_keys((new AuthMasterModel())->getConfiguration()),
+            AuthAccountModel::FORM_ACCOUNT_READONLY, self::OWN_ACCOUNT_LOCKED, ['uid']);
+        $profileKeys = array_diff(array_keys((new StaffMasterModel())->getConfiguration()), ['auth_id'], self::OWN_STAFF_LOCKED);
+        $account     = array_intersect_key($post, array_flip($accountKeys));
+        if (in_array((string) ($account['otp_mode'] ?? ''), self::OTP_MODE_DISABLED, true)) {
+            unset($account['otp_mode']);
+        }
+
+        [$code, $body] = $this->callApi('v1/staff/account/update', [
+            'uid'     => $uid,
+            'account' => $account,
+            'profile' => array_intersect_key($post, array_flip($profileKeys)),
+        ]);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            return $this->saveFailed($code, $body, 'Could not save your profile. Please try again.');
+        }
+
+        // the layout reads the name and contact details from the session user
+        session()->set('user', array_merge($user, array_intersect_key($account, $user)));
+        return $this->response->setJSON([
+            'success'   => true,
+            'message'   => $body['message'] ?? 'Profile saved.',
+            'redirect'  => base_url('admin/profile'),
+            'csrf_hash' => csrf_hash(),
+        ]);
     }
 
     /**
