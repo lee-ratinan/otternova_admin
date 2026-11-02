@@ -271,6 +271,7 @@ class Admin extends BaseController
         }
 
         [$code, $body] = $this->callApi('v1/staff/account/update', [
+            'mode'    => 'admin-edit',
             'uid'     => $isNew ? null : $uid,
             'account' => $account,
             'profile' => array_intersect_key($post, array_flip($profileKeys)),
@@ -354,7 +355,8 @@ class Admin extends BaseController
     {
         $account = (new AuthMasterModel())->getConfiguration();
         if ($own) {
-            unset($account['avatar_path']); // not on the own profile for now
+            // no avatar on the own profile for now, and the admin notes are not shown to the account holder
+            unset($account['avatar_path'], $account['admin_notes']);
             $locked = self::OWN_ACCOUNT_LOCKED;
         } else {
             // avatar_path is never edited here (a separate upload sets it): shown as an image without an input, so it is not submitted
@@ -392,6 +394,10 @@ class Admin extends BaseController
                 'Internal'          => ['hr_notes'],
             ];
             $locked  = $own ? self::OWN_STAFF_LOCKED : self::STAFF_SELF_MANAGED;
+            if ($own) {
+                // HR notes are not shown to the staff member themselves
+                unset($groups['Internal'], $profile['hr_notes']);
+            }
         } elseif (AuthMasterModel::TYPE_CLIENT === $type) {
             $title   = 'Client Profile';
             $profile = (new ClientMasterModel())->getConfiguration();
@@ -506,6 +512,7 @@ class Admin extends BaseController
         }
         // keyed by field name, as the form looks values up by the field's 'name'
         $values   = (array) ($body['data']['account'] ?? []) + (array) ($body['data']['profile'] ?? []);
+        unset($values['admin_notes'], $values['hr_notes']); // not shown to the account holder, see accountFormSections()
         $sections = $this->accountFormSections(AuthMasterModel::TYPE_STAFF, $this->staffFormOptions($uid), null, true);
         $data     = [
             'page_title' => 'Profile',
@@ -550,6 +557,7 @@ class Admin extends BaseController
         }
 
         [$code, $body] = $this->callApi('v1/staff/account/update', [
+            'mode'    => 'self-edit', // the API checks the uid is the caller's and leaves the locked fields out
             'uid'     => $uid,
             'account' => $account,
             'profile' => array_intersect_key($post, array_flip($profileKeys)),
