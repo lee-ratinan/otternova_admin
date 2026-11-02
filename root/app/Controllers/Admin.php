@@ -556,9 +556,61 @@ class Admin extends BaseController
                     ['name' => 'image-name', 'type' => 'hidden'],
                     ['name' => 'image', 'type' => 'file', 'label' => 'Profile picture', 'rules' => 'required', 'preview' => avatarUrl($avatar)],
                 ],
+            ], [
+                // the API checks the current password and the new one's rules (8+ characters, a letter and a number)
+                'form_id'   => 'change-password-form',
+                'title'     => 'Change Password',
+                'subtitle'  => 'Enter your current password, then the new one twice',
+                'mode'      => 'edit',
+                'id_prefix' => 'password-',
+                'id_field'  => 'uid',
+                'id'        => $uid,
+                'urls'      => ['submit' => base_url('admin/profile/password')],
+                'labels'    => ['save' => 'Change Password'],
+                'messages'  => ['saved' => 'Your password has been changed.', 'saveFailed' => 'Could not change your password. Please try again.'],
+                'fields'    => [
+                    ['name' => 'current_password', 'type' => 'password', 'label' => 'Current password', 'rules' => 'required', 'autocomplete' => 'current-password'],
+                    ['name' => 'new_password', 'type' => 'password', 'label' => 'New password', 'rules' => 'required|min_length[8]', 'autocomplete' => 'new-password',
+                     'help' => 'At least 8 characters, with a letter and a number'],
+                    ['name' => 'confirm_password', 'type' => 'password', 'label' => 'Confirm new password', 'rules' => 'required|matches[new_password]', 'autocomplete' => 'new-password',
+                     'messages' => ['matches' => 'The new passwords do not match.']],
+                ],
             ]],
         ];
         return view('generic_form', $data);
+    }
+
+    /**
+     * Change the signed-in staff member's own password through LINK_INTERNAL_API v1/staff/change-password,
+     * which checks the current password and the new one's rules
+     * @return ResponseInterface
+     */
+    public function profilePasswordPost(): ResponseInterface
+    {
+        $current = (string) $this->request->getPost('current_password');
+        $new     = (string) $this->request->getPost('new_password');
+        if ($new !== (string) $this->request->getPost('confirm_password')) {
+            return $this->response->setStatusCode(422)->setJSON([
+                'success'   => false,
+                'message'   => 'The new passwords do not match.',
+                'errors'    => ['confirm_password' => 'The new passwords do not match.'],
+                'csrf_hash' => csrf_hash(),
+            ]);
+        }
+
+        [$code, $body] = $this->callApi('v1/staff/change-password', ['current_password' => $current, 'new_password' => $new]);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            return $this->saveFailed($code, $body, 'Could not change your password. Please try again.');
+        }
+
+        // the session user keeps the new expiry, as the sign-in response would
+        $user = (array) session('user');
+        session()->set('user', ['password_expiry' => $body['data']['password_expiry'] ?? null] + $user);
+        return $this->response->setJSON([
+            'success'   => true,
+            'message'   => $body['message'] ?? 'Your password has been changed.',
+            'csrf_hash' => csrf_hash(),
+        ]);
     }
 
     /**

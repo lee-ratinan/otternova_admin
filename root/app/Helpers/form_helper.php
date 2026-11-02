@@ -1066,11 +1066,11 @@ if (! function_exists('fb_header')) {
 }
 
 if (! function_exists('fb_hidden_fields')) {
-    /** PK hidden input (id="id" by default) + CSRF token. */
+    /** PK hidden input (id = id_prefix + id_field, "id" by default) + CSRF token. */
     function fb_hidden_fields(array $form): string
     {
         $form = fb_defaults($form);
-        $html = '<input type="hidden" id="' . fb_esc($form['id_field'], 'attr') . '" name="' . fb_esc($form['id_field'], 'attr') . '" value="' . fb_esc($form['id'], 'attr') . '" />';
+        $html = '<input type="hidden" id="' . fb_esc($form['id_prefix'] . $form['id_field'], 'attr') . '" name="' . fb_esc($form['id_field'], 'attr') . '" value="' . fb_esc($form['id'], 'attr') . '" />';
         if ($form['csrf']) {
             $html .= '<input type="hidden" data-fb-csrf name="' . fb_esc($form['csrf']['name'], 'attr') . '" value="' . fb_esc($form['csrf']['hash'], 'attr') . '" />';
         }
