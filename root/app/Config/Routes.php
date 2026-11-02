@@ -11,6 +11,7 @@ $routes->get('logout', 'Home::logout');
 
 $routes->group('admin', ['filter' => 'auth'], static function($routes) {
     // Dashboard
+    $routes->get('/', 'Admin::dashboard'); // done prototyping
     $routes->get('dashboard', 'Admin::dashboard'); // done prototyping
     // Users
     $routes->get('accounts', 'Admin::accounts'); // done prototyping
