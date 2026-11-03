@@ -24,6 +24,7 @@ $routes->group('admin', ['filter' => 'auth'], static function($routes) {
     $routes->post('profile/save', 'Admin::profileEditPost');
     $routes->post('profile/password', 'Admin::profilePasswordPost');
     $routes->post('image-upload', 'Admin::imageUpload');
+    $routes->post('image-delete', 'Admin::imageDelete');
 
 
 

@@ -549,12 +549,13 @@ class Admin extends BaseController
                 'id_prefix' => 'picture-',
                 'id_field'  => 'id',
                 'id'        => (int) (session('user')['id'] ?? 0),
-                'urls'      => ['submit' => base_url('admin/image-upload')],
+                'urls'      => ['submit' => base_url('admin/image-upload'), 'delete' => base_url('admin/image-delete')],
                 'values'    => ['used-for' => 'profile-picture', 'image-name' => $uid],
                 'fields'    => [
                     ['name' => 'used-for', 'type' => 'hidden'],
                     ['name' => 'image-name', 'type' => 'hidden'],
-                    ['name' => 'image', 'type' => 'file', 'label' => 'Profile picture', 'rules' => 'required', 'preview' => avatarUrl($avatar)],
+                    ['name' => 'image', 'type' => 'file', 'label' => 'Profile picture', 'rules' => 'required', 'preview' => avatarUrl($avatar),
+                     'stored' => '' !== $avatar, 'default_preview' => avatarUrl(null)],
                 ],
             ], [
                 // the API checks the current password and the new one's rules (8+ characters, a letter and a number)
@@ -609,6 +610,32 @@ class Admin extends BaseController
         return $this->response->setJSON([
             'success'   => true,
             'message'   => $body['message'] ?? 'Your password has been changed.',
+            'csrf_hash' => csrf_hash(),
+        ]);
+    }
+
+    /**
+     * Delete an image through LINK_INTERNAL_API v1/staff/image-delete, for the stand-alone upload forms:
+     * { used-for, id }, forwarded as sent (the API checks who may change which row).
+     * Deleting the signed-in staff member's own picture also clears it from the session for the layout.
+     * @return ResponseInterface
+     */
+    public function imageDelete(): ResponseInterface
+    {
+        $usedFor = (string) $this->request->getPost('used-for');
+        $id      = (string) $this->request->getPost('id');
+        [$code, $body] = $this->callApi('v1/staff/image-delete', ['used-for' => $usedFor, 'id' => $id]);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            return $this->saveFailed($code, $body, 'Could not delete the image. Please try again.');
+        }
+
+        $user = (array) session('user');
+        if ('profile-picture' === $usedFor && $id === (string) ($user['id'] ?? '')) {
+            session()->set('user', ['avatar_path' => null] + $user);
+        }
+        return $this->response->setJSON([
+            'success'   => true,
+            'message'   => $body['message'] ?? 'Image deleted.',
             'csrf_hash' => csrf_hash(),
         ]);
     }
