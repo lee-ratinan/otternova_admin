@@ -522,6 +522,8 @@ class Admin extends BaseController
         if ('' !== $avatar && strtok($session, '?') === $avatar) {
             $avatar = $session;
         }
+        // with no picture, the session holds the initials avatar (from sign-in or imageDelete()), shown in its place
+        $fallback = '' === $avatar ? avatarUrl($session) : avatarUrl(null);
         $data     = [
             'page_title' => 'Profile',
             'slug'       => 'profile',
@@ -554,8 +556,8 @@ class Admin extends BaseController
                 'fields'    => [
                     ['name' => 'used-for', 'type' => 'hidden'],
                     ['name' => 'image-name', 'type' => 'hidden'],
-                    ['name' => 'image', 'type' => 'file', 'label' => 'Profile picture', 'rules' => 'required', 'preview' => avatarUrl($avatar),
-                     'stored' => '' !== $avatar, 'default_preview' => avatarUrl(null)],
+                    ['name' => 'image', 'type' => 'file', 'label' => 'Profile picture', 'rules' => 'required', 'preview' => '' === $avatar ? $fallback : avatarUrl($avatar),
+                     'stored' => '' !== $avatar, 'default_preview' => $fallback],
                 ],
             ], [
                 // the API checks the current password and the new one's rules (8+ characters, a letter and a number)
@@ -617,7 +619,9 @@ class Admin extends BaseController
     /**
      * Delete an image through LINK_INTERNAL_API v1/staff/image-delete, for the stand-alone upload forms:
      * { used-for, id }, forwarded as sent (the API checks who may change which row).
-     * Deleting the signed-in staff member's own picture also clears it from the session for the layout.
+     * For a profile picture the API answers with 'url', the account's initials avatar (null when the name gives no
+     * initials), which takes the picture's place: in the session for the layout when it is the signed-in staff
+     * member's own, and as 'url' for the form's thumbnail ('' = the form's default_preview).
      * @return ResponseInterface
      */
     public function imageDelete(): ResponseInterface
@@ -629,13 +633,15 @@ class Admin extends BaseController
             return $this->saveFailed($code, $body, 'Could not delete the image. Please try again.');
         }
 
+        $url  = (string) ($body['data']['url'] ?? '');
         $user = (array) session('user');
         if ('profile-picture' === $usedFor && $id === (string) ($user['id'] ?? '')) {
-            session()->set('user', ['avatar_path' => null] + $user);
+            session()->set('user', ['avatar_path' => '' === $url ? null : $url] + $user);
         }
         return $this->response->setJSON([
             'success'   => true,
             'message'   => $body['message'] ?? 'Image deleted.',
+            'url'       => '' === $url ? '' : avatarUrl($url),
             'csrf_hash' => csrf_hash(),
         ]);
     }
