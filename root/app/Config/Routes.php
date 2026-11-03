@@ -51,15 +51,15 @@ $routes->group('admin/ledger', ['filter' => ['auth', 'department:EXE,FIN']], sta
     $routes->get('/', 'Ledger::entries');
     $routes->post('/', 'Ledger::entriesList');
     $routes->get('entries/create', 'Ledger::entriesEdit/create');
-    $routes->get('entries/edit/(:num)', 'Ledger::entriesEdit/$1');
+    $routes->get('entries/edit/(:segment)', 'Ledger::entriesEdit/$1');
     $routes->post('entries/save', 'Ledger::entriesEditPost');
     $routes->post('entries/receipt-upload', 'Ledger::receiptUpload');
     $routes->post('entries/receipt-delete', 'Ledger::receiptDelete');
-    $routes->get('entries/receipt/(:num)', 'Ledger::receipt/$1');
-    // accounts, categories and counterparties share one set of pages
+    $routes->get('entries/receipt/(:segment)', 'Ledger::receipt/$1');
+    // every record is in the URL by its public_id; accounts, categories and counterparties share one set of pages
     $routes->get('(accounts|categories|counterparties)', 'Ledger::records/$1');
     $routes->post('(accounts|categories|counterparties)', 'Ledger::recordsList/$1');
     $routes->get('(accounts|categories|counterparties)/create', 'Ledger::recordsEdit/$1/create');
-    $routes->get('(accounts|categories|counterparties)/edit/(:num)', 'Ledger::recordsEdit/$1/$2');
+    $routes->get('(accounts|categories|counterparties)/edit/(:segment)', 'Ledger::recordsEdit/$1/$2');
     $routes->post('(accounts|categories|counterparties)/save', 'Ledger::recordsEditPost/$1');
 });

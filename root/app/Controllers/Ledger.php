@@ -53,6 +53,17 @@ class Ledger extends BaseController
         ],
     ];
 
+    /**
+     * The entry's fields that point at other ledger records: the model's column => the field the API sends and
+     * takes, by the record's public_id
+     */
+    private const ENTRY_REFERENCES = [
+        'category_id'     => 'category_public_id',
+        'from_account_id' => 'from_account_public_id',
+        'to_account_id'   => 'to_account_public_id',
+        'counterparty_id' => 'counterparty_public_id',
+    ];
+
     /** Largest receipt the API accepts (Config\LedgerReceipt::$maxFileSize there) */
     private const RECEIPT_MAX_SIZE = 10 * 1024 * 1024;
 
@@ -117,17 +128,17 @@ class Ledger extends BaseController
     }
 
     /**
-     * Entry form: 'create' opens an empty entry, any other value is the id of the entry to view
+     * Entry form: 'create' opens an empty entry, any other value is the public_id of the entry to view
      * (the Edit button switches the same page to edit mode). A saved entry also has its receipt upload form.
-     * @param string $id
+     * @param string $publicId
      * @return string
      */
-    public function entriesEdit(string $id): string
+    public function entriesEdit(string $publicId): string
     {
-        $mode   = 'create' === $id ? 'create' : 'view';
+        $mode   = 'create' === $publicId ? 'create' : 'view';
         $values = [];
         if ('view' === $mode) {
-            [$code, $body] = $this->callApi('v1/staff/ledger/entry', ['id' => (int) $id]);
+            [$code, $body] = $this->callApi('v1/staff/ledger/entry', ['public_id' => $publicId]);
             if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
                 throw $code === 404
                     ? PageNotFoundException::forPageNotFound($body['message'] ?? null)
@@ -139,7 +150,7 @@ class Ledger extends BaseController
         }
 
         $data = [
-            'page_title'  => 'view' === $mode ? 'Ledger Entry #' . $values['id'] : 'New Ledger Entry',
+            'page_title'  => 'view' === $mode ? 'Ledger Entry ' . $values['public_id'] : 'New Ledger Entry',
             'slug'        => 'ledger-entries',
             'breadcrumbs' => [base_url('admin/ledger') => 'Ledger'],
             'formConfig'  => [
@@ -147,13 +158,13 @@ class Ledger extends BaseController
                 'title'    => ['create' => 'New Entry', 'view' => 'Entry Detail'][$mode],
                 'subtitle' => 'Fields marked with * are required',
                 'mode'     => $mode,
-                'id_field' => 'id',
-                'id'       => $values['id'] ?? '',
+                'id_field' => 'public_id',
+                'id'       => $values['public_id'] ?? '',
                 'method'   => 'POST',
                 'locale'   => LOCALE,
                 'urls'     => [
                     'submit' => base_url('admin/ledger/entries/save'),
-                    'edit'   => base_url('admin/ledger/entries/edit/' . rawurlencode($id)),
+                    'edit'   => base_url('admin/ledger/entries/edit/' . rawurlencode($publicId)),
                     'list'   => base_url('admin/ledger'),
                 ],
                 'values'   => $values,
@@ -167,17 +178,18 @@ class Ledger extends BaseController
     }
 
     /**
-     * Save an entry: an empty id creates one, otherwise the entry with that id is updated.
+     * Save an entry: an empty public_id creates one, otherwise the entry with that public_id is updated.
      * Forwarded to LINK_INTERNAL_API v1/staff/ledger/entry/update, which validates it
      * @return ResponseInterface
      */
     public function entriesEditPost(): ResponseInterface
     {
-        $post = (array) $this->request->getPost();
-        $id   = trim((string) ($post['id'] ?? ''));
+        $post     = (array) $this->request->getPost();
+        $publicId = trim((string) ($post['public_id'] ?? ''));
+        $fields   = array_map(static fn (string $field): string => self::ENTRY_REFERENCES[$field] ?? $field, OtternovaLedgerMasterModel::FORM_FIELDS);
 
-        [$code, $body] = $this->callApi('v1/staff/ledger/entry/update', ['id' => '' === $id ? null : $id]
-            + array_intersect_key($post, array_flip(OtternovaLedgerMasterModel::FORM_FIELDS)));
+        [$code, $body] = $this->callApi('v1/staff/ledger/entry/update', ['public_id' => '' === $publicId ? null : $publicId]
+            + array_intersect_key($post, array_flip($fields)));
         if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
             return $this->saveFailed($code, $body, 'Could not save the ledger entry. Please try again.');
         }
@@ -185,20 +197,20 @@ class Ledger extends BaseController
         return $this->response->setJSON([
             'success'   => true,
             'message'   => $body['message'] ?? 'Saved.',
-            'redirect'  => base_url('admin/ledger/entries/edit/' . (int) ($body['data']['id'] ?? $id)),
+            'redirect'  => base_url('admin/ledger/entries/edit/' . rawurlencode((string) ($body['data']['public_id'] ?? $publicId))),
             'csrf_hash' => csrf_hash(),
         ]);
     }
 
     /**
-     * Upload an entry's receipt through LINK_INTERNAL_API v1/staff/ledger/receipt-upload: multipart { id, receipt },
-     * a PDF that replaces the one the entry had. The page reloads, so it shows the link to the new receipt.
+     * Upload an entry's receipt through LINK_INTERNAL_API v1/staff/ledger/receipt-upload: multipart { public_id,
+     * receipt }, a PDF that replaces the one the entry had. The page reloads, so it shows the link to the new receipt.
      * @return ResponseInterface
      */
     public function receiptUpload(): ResponseInterface
     {
-        $id   = (int) $this->request->getPost('id');
-        $file = $this->request->getFile('receipt');
+        $publicId = (string) $this->request->getPost('public_id');
+        $file     = $this->request->getFile('receipt');
         if (null === $file || ! $file->isValid()) {
             $tooLarge = null !== $file && in_array($file->getError(), [UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE], true);
             $message  = $tooLarge ? 'The file is too large. Please choose a smaller one.' : 'Please choose a PDF file.';
@@ -211,8 +223,8 @@ class Ledger extends BaseController
         }
 
         [$code, $body] = $this->callApi('v1/staff/ledger/receipt-upload', [
-            'id'      => (string) $id,
-            'receipt' => new CURLFile($file->getTempName(), 'application/pdf', $file->getClientName()),
+            'public_id' => $publicId,
+            'receipt'   => new CURLFile($file->getTempName(), 'application/pdf', $file->getClientName()),
         ], true);
         if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
             return $this->saveFailed($code, $body, 'Could not upload the receipt. Please try again.');
@@ -221,7 +233,7 @@ class Ledger extends BaseController
         return $this->response->setJSON([
             'success'   => true,
             'message'   => $body['message'] ?? 'Receipt uploaded.',
-            'redirect'  => base_url('admin/ledger/entries/edit/' . $id),
+            'redirect'  => base_url('admin/ledger/entries/edit/' . rawurlencode($publicId)),
             'csrf_hash' => csrf_hash(),
         ]);
     }
@@ -232,8 +244,8 @@ class Ledger extends BaseController
      */
     public function receiptDelete(): ResponseInterface
     {
-        $id = (int) $this->request->getPost('id');
-        [$code, $body] = $this->callApi('v1/staff/ledger/receipt-delete', ['id' => $id]);
+        $publicId = (string) $this->request->getPost('public_id');
+        [$code, $body] = $this->callApi('v1/staff/ledger/receipt-delete', ['public_id' => $publicId]);
         if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
             return $this->saveFailed($code, $body, 'Could not delete the receipt. Please try again.');
         }
@@ -241,21 +253,21 @@ class Ledger extends BaseController
         return $this->response->setJSON([
             'success'   => true,
             'message'   => $body['message'] ?? 'Receipt deleted.',
-            'redirect'  => base_url('admin/ledger/entries/edit/' . $id),
+            'redirect'  => base_url('admin/ledger/entries/edit/' . rawurlencode($publicId)),
             'csrf_hash' => csrf_hash(),
         ]);
     }
 
     /**
-     * An entry's receipt, passed on from LINK_INTERNAL_API GET v1/staff/ledger/receipt/{id}: the browser cannot send
-     * the JWT itself, so the PDF comes through here
-     * @param string $id
+     * An entry's receipt, passed on from LINK_INTERNAL_API GET v1/staff/ledger/receipt/{public_id}: the browser cannot
+     * send the JWT itself, so the PDF comes through here
+     * @param string $publicId
      * @return ResponseInterface
      */
-    public function receipt(string $id): ResponseInterface
+    public function receipt(string $publicId): ResponseInterface
     {
         try {
-            $response = service('curlrequest')->get(getenv('LINK_INTERNAL_API') . 'v1/staff/ledger/receipt/' . (int) $id, [
+            $response = service('curlrequest')->get(getenv('LINK_INTERNAL_API') . 'v1/staff/ledger/receipt/' . rawurlencode($publicId), [
                 'headers'     => ['Authorization' => 'Bearer ' . session()->get('access_token')],
                 'timeout'     => 30,
                 'http_errors' => false,
@@ -271,7 +283,7 @@ class Ledger extends BaseController
         return $this->response
             ->removeHeader('Cache-Control')
             ->setHeader('Cache-Control', 'private, no-store')
-            ->setHeader('Content-Disposition', 'inline; filename="receipt-' . (int) $id . '.pdf"')
+            ->setHeader('Content-Disposition', 'inline; filename="receipt-' . preg_replace('/[^0-9A-Za-z_-]/', '', $publicId) . '.pdf"')
             ->setHeader('X-Content-Type-Options', 'nosniff')
             ->setContentType('application/pdf', '')
             ->setBody($response->getBody());
@@ -339,7 +351,7 @@ class Ledger extends BaseController
                     return 'DESC' === $dir ? -$cmp : $cmp;
                 }
             }
-            return $a['id'] <=> $b['id'];
+            return strcmp($a['public_id'], $b['public_id']);
         });
 
         return $this->response->setJSON(lb_response(
@@ -351,19 +363,19 @@ class Ledger extends BaseController
     }
 
     /**
-     * Account, category or counterparty form: 'create' opens an empty one, any other value is the id of the one
-     * to view (the Edit button switches the same page to edit mode)
+     * Account, category or counterparty form: 'create' opens an empty one, any other value is the public_id of
+     * the one to view (the Edit button switches the same page to edit mode)
      * @param string $kind A key of RECORDS
-     * @param string $id
+     * @param string $publicId
      * @return string
      */
-    public function recordsEdit(string $kind, string $id): string
+    public function recordsEdit(string $kind, string $publicId): string
     {
         $record = self::RECORDS[$kind];
-        $mode   = 'create' === $id ? 'create' : 'view';
+        $mode   = 'create' === $publicId ? 'create' : 'view';
         $values = [];
         if ('view' === $mode) {
-            $values = array_column($this->lookup($kind), null, 'id')[(int) $id] ?? null;
+            $values = array_column($this->lookup($kind), null, 'public_id')[$publicId] ?? null;
             if (null === $values) {
                 throw PageNotFoundException::forPageNotFound($record['one'] . ' not found.');
             }
@@ -386,13 +398,13 @@ class Ledger extends BaseController
                 'title'    => ['create' => 'New ' . $record['one'], 'view' => $record['one'] . ' Detail'][$mode],
                 'subtitle' => 'Fields marked with * are required',
                 'mode'     => $mode,
-                'id_field' => 'id',
-                'id'       => $values['id'] ?? '',
+                'id_field' => 'public_id',
+                'id'       => $values['public_id'] ?? '',
                 'method'   => 'POST',
                 'locale'   => LOCALE,
                 'urls'     => [
                     'submit' => base_url('admin/ledger/' . $kind . '/save'),
-                    'edit'   => base_url('admin/ledger/' . $kind . '/edit/' . rawurlencode($id)),
+                    'edit'   => base_url('admin/ledger/' . $kind . '/edit/' . rawurlencode($publicId)),
                     'list'   => base_url('admin/ledger/' . $kind),
                 ],
                 'values'   => $values,
@@ -403,18 +415,18 @@ class Ledger extends BaseController
     }
 
     /**
-     * Save an account, category or counterparty: an empty id creates one, otherwise the one with that id is updated.
-     * Forwarded to LINK_INTERNAL_API v1/staff/ledger/{endpoint}/update, which validates it
+     * Save an account, category or counterparty: an empty public_id creates one, otherwise the one with that
+     * public_id is updated. Forwarded to LINK_INTERNAL_API v1/staff/ledger/{endpoint}/update, which validates it
      * @param string $kind A key of RECORDS
      * @return ResponseInterface
      */
     public function recordsEditPost(string $kind): ResponseInterface
     {
-        $record = self::RECORDS[$kind];
-        $post   = (array) $this->request->getPost();
-        $id     = trim((string) ($post['id'] ?? ''));
+        $record   = self::RECORDS[$kind];
+        $post     = (array) $this->request->getPost();
+        $publicId = trim((string) ($post['public_id'] ?? ''));
 
-        [$code, $body] = $this->callApi('v1/staff/ledger/' . $record['endpoint'] . '/update', ['id' => '' === $id ? null : $id]
+        [$code, $body] = $this->callApi('v1/staff/ledger/' . $record['endpoint'] . '/update', ['public_id' => '' === $publicId ? null : $publicId]
             + array_intersect_key($post, array_flip($record['model']::FORM_FIELDS)));
         if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
             return $this->saveFailed($code, $body, 'Could not save the ' . strtolower($record['one']) . '. Please try again.');
@@ -423,7 +435,7 @@ class Ledger extends BaseController
         return $this->response->setJSON([
             'success'   => true,
             'message'   => $body['message'] ?? 'Saved.',
-            'redirect'  => base_url('admin/ledger/' . $kind . '/edit/' . (int) ($body['data']['id'] ?? $id)),
+            'redirect'  => base_url('admin/ledger/' . $kind . '/edit/' . rawurlencode((string) ($body['data']['public_id'] ?? $publicId))),
             'csrf_hash' => csrf_hash(),
         ]);
     }
@@ -447,11 +459,11 @@ class Ledger extends BaseController
             'table_id'    => 'ledgerEntryTable',
             'title'       => 'Ledger Entries',
             'subtitle'    => 'Newest transaction first; the search looks in the detail and reference number',
-            'id_field'    => 'id',
+            'id_field'    => 'public_id',
             'urls'        => [
                 'data'   => base_url('admin/ledger'),
                 'create' => base_url('admin/ledger/entries/create'),
-                'edit'   => base_url('admin/ledger/entries/edit/{id}'),
+                'edit'   => base_url('admin/ledger/entries/edit/{public_id}'),
             ],
             'labels'      => ['add' => 'Add Entry'],
             'columns'     => [
@@ -469,9 +481,9 @@ class Ledger extends BaseController
             'filters'     => [
                 ['name' => 'date_from', 'type' => 'date', 'label' => 'Date from'],
                 ['name' => 'date_to', 'type' => 'date', 'label' => 'Date to'],
-                ['name' => 'account_id', 'type' => 'select', 'label' => 'Account', 'options' => $lookups['accounts'] ?? []],
-                ['name' => 'category_id', 'type' => 'select', 'label' => $labels('category_id'), 'options' => $lookups['categories'] ?? []],
-                ['name' => 'counterparty_id', 'type' => 'select', 'label' => $labels('counterparty_id'), 'options' => $lookups['counterparties'] ?? []],
+                ['name' => 'account_public_id', 'type' => 'select', 'label' => 'Account', 'options' => $lookups['accounts'] ?? []],
+                ['name' => 'category_public_id', 'type' => 'select', 'label' => $labels('category_id'), 'options' => $lookups['categories'] ?? []],
+                ['name' => 'counterparty_public_id', 'type' => 'select', 'label' => $labels('counterparty_id'), 'options' => $lookups['counterparties'] ?? []],
             ],
             'layout'      => ['filter_col' => 2],
             'order'       => [],
@@ -493,11 +505,11 @@ class Ledger extends BaseController
             'table_id'    => 'ledger' . ucfirst($kind) . 'Table',
             'title'       => $record['title'],
             'subtitle'    => $record['subtitle'],
-            'id_field'    => 'id',
+            'id_field'    => 'public_id',
             'urls'        => [
                 'data'   => base_url('admin/ledger/' . $kind),
                 'create' => base_url('admin/ledger/' . $kind . '/create'),
-                'edit'   => base_url('admin/ledger/' . $kind . '/edit/{id}'),
+                'edit'   => base_url('admin/ledger/' . $kind . '/edit/{public_id}'),
             ],
             'labels'      => ['add' => 'Add ' . $record['one']],
             'columns'     => $model::toColumns($fields),
@@ -520,6 +532,11 @@ class Ledger extends BaseController
         $fields['from_account_id']['options'] = $lookups['accounts'];
         $fields['to_account_id']['options']   = $lookups['accounts'];
         $fields['counterparty_id']['options'] = $lookups['counterparties'];
+        // these are sent and taken by the public_id of the record, so the model's id rules do not apply
+        foreach (self::ENTRY_REFERENCES as $column => $name) {
+            $fields[$column]['name']  = $name;
+            $fields[$column]['rules'] = $fields[$column]['optional'] ? '' : 'required';
+        }
         $fields['counterparty_id']['help']    = 'Required when either account is external';
         $fields['reference_number']['help']   = 'The number on the bill or receipt, if there is one';
         $fields['transaction_amount']['help'] = 'What was actually paid out of the From account';
@@ -558,7 +575,7 @@ class Ledger extends BaseController
     {
         $hasReceipt = ! empty($entry['has_receipt']);
         $current    = $hasReceipt
-            ? '<a href="' . esc(base_url('admin/ledger/entries/receipt/' . (int) $entry['id']), 'attr') . '" target="_blank" rel="noopener">'
+            ? '<a href="' . esc(base_url('admin/ledger/entries/receipt/' . rawurlencode($entry['public_id'])), 'attr') . '" target="_blank" rel="noopener">'
                 . '<i class="bi bi-file-earmark-pdf"></i> Open the receipt</a>'
             : '<span class="text-secondary">No receipt yet</span>';
         return [
@@ -566,8 +583,8 @@ class Ledger extends BaseController
             'title'     => 'Receipt',
             'subtitle'  => 'The PDF of the bill or receipt; a new upload replaces the current one',
             'id_prefix' => 'receipt-',
-            'id_field'  => 'id',
-            'id'        => (int) $entry['id'],
+            'id_field'  => 'public_id',
+            'id'        => $entry['public_id'],
             'urls'      => ['submit' => base_url('admin/ledger/entries/receipt-upload'), 'delete' => base_url('admin/ledger/entries/receipt-delete')],
             'messages'  => ['confirmDeleteImage' => 'Are you sure you want to delete this receipt? This cannot be undone.'],
             'fields'    => [
@@ -582,7 +599,8 @@ class Ledger extends BaseController
     // ---- API ----
 
     /**
-     * The options of the entry form's and list's dropdowns: accounts, categories and counterparties as id => label
+     * The options of the entry form's and list's dropdowns: accounts, categories and counterparties as
+     * public_id => label
      * @return array{accounts: array, categories: array, counterparties: array}
      */
     private function lookups(): array
@@ -590,13 +608,13 @@ class Ledger extends BaseController
         $out = [];
         foreach ($this->lookup('accounts') as $row) {
             $type = lang('OtternovaLedgerAccount.enum.account_type.' . $row['account_type']);
-            $out['accounts'][$row['id']] = $row['account_name'] . ' (' . $type . ', ' . $row['currency_code'] . ')';
+            $out['accounts'][$row['public_id']] = $row['account_name'] . ' (' . $type . ', ' . $row['currency_code'] . ')';
         }
         foreach ($this->lookup('categories') as $row) {
-            $out['categories'][$row['id']] = $row['category_name'] . ' (' . $row['category_code'] . ')';
+            $out['categories'][$row['public_id']] = $row['category_name'] . ' (' . $row['category_code'] . ')';
         }
         foreach ($this->lookup('counterparties') as $row) {
-            $out['counterparties'][$row['id']] = $row['counterparty_name'];
+            $out['counterparties'][$row['public_id']] = $row['counterparty_name'];
         }
         return $out + ['accounts' => [], 'categories' => [], 'counterparties' => []];
     }
