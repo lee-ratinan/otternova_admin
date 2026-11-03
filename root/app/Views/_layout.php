@@ -216,9 +216,13 @@
             <li class="nav-heading"><span>Inbox</span></li>
             <li class="nav-item"><a class="nav-link <?= ('inbox' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/inbox') ?>"><span class="nav-icon"><i class="bi bi-inbox"></i></span><span class="nav-text">Inbox</span></a></li>
             <!-- FINANCE -->
+            <?php if (inDepartment(LEDGER_DEPARTMENTS)) : // the Executive Office and Finance only; see App\Filters\DepartmentFilter ?>
             <li class="nav-heading"><span>Finance</span></li>
-            <li class="nav-item"><a class="nav-link <?= ('finance-ledger' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/finance/ledger') ?>"><span class="nav-icon"><i class="bi bi-list-columns"></i></span><span class="nav-text">Ledger</span></a></li>
-            <li class="nav-item"><a class="nav-link <?= ('finance-ledger' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/finance/report') ?>"><span class="nav-icon"><i class="bi bi-graph-up-arrow"></i></span><span class="nav-text">Report</span></a></li>
+            <li class="nav-item"><a class="nav-link <?= ('ledger-entries' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/ledger') ?>"><span class="nav-icon"><i class="bi bi-list-columns"></i></span><span class="nav-text">Ledger</span></a></li>
+            <li class="nav-item"><a class="nav-link <?= ('ledger-accounts' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/ledger/accounts') ?>"><span class="nav-icon"><i class="bi bi-bank"></i></span><span class="nav-text">Ledger Accounts</span></a></li>
+            <li class="nav-item"><a class="nav-link <?= ('ledger-categories' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/ledger/categories') ?>"><span class="nav-icon"><i class="bi bi-tags"></i></span><span class="nav-text">Categories</span></a></li>
+            <li class="nav-item"><a class="nav-link <?= ('ledger-counterparties' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/ledger/counterparties') ?>"><span class="nav-icon"><i class="bi bi-building"></i></span><span class="nav-text">Counterparties</span></a></li>
+            <?php endif; ?>
             <!-- LOGS -->
             <li class="nav-heading"><span>Maintenance</span></li>
             <li class="nav-item"><a class="nav-link <?= ('logs-error' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/logs/errors') ?>"><span class="nav-icon"><i class="bi bi-bug"></i></span><span class="nav-text">Error Logs</span></a></li>

@@ -34268,6 +34268,7 @@ textarea.form-control {
 #toast-container > .toast-error   { background-color: #bd362f !important; }
 #toast-container > .toast-info    { background-color: #2f96b4 !important; }
 #toast-container > .toast-warning { background-color: #f89406 !important; }
+#toast-container .toast-message, #toast-container .toast-title { color: #fff !important; }
 
 /* DT */
 .dt-length, .dt-info { padding-left: 1rem; }
