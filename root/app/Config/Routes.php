@@ -32,9 +32,6 @@ $routes->group('admin', ['filter' => 'auth'], static function($routes) {
     $routes->get('notifications', 'Admin::notifications');
     $routes->get('public-profile/(:any)', 'Admin::publicProfile/$1');
     $routes->get('inbox', 'Admin::inbox');
-    // Our own users
-    $routes->get('otternauts', 'Admin::otternauts');
-    $routes->get('otternauts/edit/(:any)', 'Admin::otternautsEdit/$1');
     // Client Controller
     $routes->get('client/contracts', 'Client::contracts');
     $routes->get('client/businesses', 'Client::businesses');

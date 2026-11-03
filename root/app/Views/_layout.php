@@ -205,7 +205,6 @@
             <!-- USERS -->
             <li class="nav-heading"><span>People</span></li>
             <li class="nav-item"><a class="nav-link <?= ('accounts' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/accounts') ?>"><span class="nav-icon"><i class="bi bi-people"></i></span><span class="nav-text">User Accounts</span></a></li>
-            <li class="nav-item"><a class="nav-link <?= ('otternauts' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/otternauts') ?>"><span class="nav-icon"><i class="bi bi-people"></i></span><span class="nav-text">Otternauts xxxxxx</span></a></li>
             <!-- CONTRACTS -->
             <li class="nav-heading"><span>Clients</span></li>
             <li class="nav-item"><a class="nav-link <?= ('clients-contracts' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/clients/contracts') ?>"><span class="nav-icon"><i class="bi bi-file-earmark-ruled"></i></span><span class="nav-text">Contracts</span></a></li>
