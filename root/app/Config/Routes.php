@@ -25,6 +25,13 @@ $routes->group('admin', ['filter' => 'auth'], static function($routes) {
     $routes->post('profile/password', 'Admin::profilePasswordPost');
     $routes->post('image-upload', 'Admin::imageUpload');
     $routes->post('image-delete', 'Admin::imageDelete');
+    // Businesses
+    $routes->get('businesses', 'Admin::businesses');
+    $routes->get('business-types', 'Admin::businessTypes');
+    $routes->post('business-types', 'Admin::businessTypesList');
+    $routes->get('business-types/create', 'Admin::businessTypesEdit/create');
+    $routes->get('business-types/edit/(:segment)', 'Admin::businessTypesEdit/$1');
+    $routes->post('business-types/save', 'Admin::businessTypesEditPost');
 
 
 

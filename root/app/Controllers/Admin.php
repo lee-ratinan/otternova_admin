@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Models\AuthAccountModel;
 use App\Models\AuthMasterModel;
+use App\Models\BusinessTypeModel;
 use App\Models\ClientMasterModel;
 use App\Models\StaffMasterModel;
 use CodeIgniter\Exceptions\PageNotFoundException;
@@ -485,6 +486,247 @@ class Admin extends BaseController
         }
 
         return ['departments' => $departments, 'managers' => $managers];
+    }
+
+    // ---- business types ----
+
+    /**
+     * The list of business types
+     * @return string
+     */
+    public function businessTypes(): string
+    {
+        $data = [
+            'page_title' => 'Business Types',
+            'slug'       => 'business-types',
+            'listConfig' => $this->businessTypesListConfig(),
+        ];
+        return view('generic_list', $data);
+    }
+
+    /**
+     * One page of business types. The API sends them all (they are few), so the search, filters, order and paging
+     * of the DataTables request are applied here.
+     * @return ResponseInterface
+     */
+    public function businessTypesList(): ResponseInterface
+    {
+        $config = $this->businessTypesListConfig();
+        $params = lb_request($this->request, $config);
+        try {
+            $all = array_map([self::class, 'flattenTypeNames'], $this->businessTypeRows());
+        } catch (RuntimeException $e) {
+            return $this->response->setJSON(lb_response($params['draw'], 0, 0, []) + ['error' => $e->getMessage()]);
+        }
+
+        $columns = array_column($params['columns'], null, 'data');
+        $rows    = array_filter($all, static function (array $row) use ($params, $columns): bool {
+            foreach ($params['filters'] as $item) {
+                if ((string) ($row[$item['def']['name']] ?? '') !== (string) $item['value']) {
+                    return false;
+                }
+            }
+            if ('' === $params['search']) {
+                return true;
+            }
+            foreach ($columns as $key => $column) {
+                // enum columns match their label, as that is what the table shows
+                $text = (string) ($row[$key] ?? '');
+                $text = $column['labels'][$text] ?? ($column['badges'][$text]['label'] ?? $text);
+                if ($column['searchable'] && false !== mb_stripos($text, $params['search'])) {
+                    return true;
+                }
+            }
+            return false;
+        });
+
+        $fieldOf = array_column($params['columns'], 'data', 'db');
+        usort($rows, static function (array $a, array $b) use ($params, $fieldOf): int {
+            foreach ($params['order'] as [$db, $dir]) {
+                $cmp = strnatcasecmp((string) ($a[$fieldOf[$db]] ?? ''), (string) ($b[$fieldOf[$db]] ?? ''));
+                if (0 !== $cmp) {
+                    return 'DESC' === $dir ? -$cmp : $cmp;
+                }
+            }
+            return strcmp($a['public_id'], $b['public_id']);
+        });
+
+        return $this->response->setJSON(lb_response(
+            $params['draw'],
+            count($all),
+            count($rows),
+            lb_rows(array_slice($rows, $params['start'], $params['length']), $config)
+        ));
+    }
+
+    /**
+     * Business type form: 'create' opens an empty one, any other value is the public_id of the one to view
+     * (the Edit button switches the same page to edit mode)
+     * @param string $publicId
+     * @return string
+     */
+    public function businessTypesEdit(string $publicId): string
+    {
+        $mode   = 'create' === $publicId ? 'create' : 'view';
+        $values = [];
+        if ('view' === $mode) {
+            $row = array_column($this->businessTypeRows(), null, 'public_id')[$publicId] ?? null;
+            if (null === $row) {
+                throw PageNotFoundException::forPageNotFound('Business type not found.');
+            }
+            $values = self::flattenTypeNames($row);
+        }
+
+        $fields = (new BusinessTypeModel())->getConfiguration();
+        $fields['type_code'] += ['maxlength' => 64, 'help' => 'Lowercase letters, digits and underscores, such as coffee_shop; fixed once created'];
+        $fields['type_status']['default'] = BusinessTypeModel::STATUS_ACTIVE;
+        $fields[] = ['type' => 'heading', 'label' => lang('BusinessType.fields.type_name')];
+        foreach (listSupportedLanguages() as $language => $languageName) {
+            $fields[] = [
+                'name'      => self::typeNameField($language),
+                'type'      => 'text',
+                'label'     => $languageName,
+                'rules'     => 'required|max_length[255]',
+                'maxlength' => 255,
+            ];
+        }
+
+        $title = 'view' === $mode
+            ? ($values[self::typeNameField(BusinessTypeModel::DEFAULT_LANGUAGE)] ?? '') ?: $values['type_code']
+            : 'New Business Type';
+        $data  = [
+            'page_title'  => $title,
+            'slug'        => 'business-types',
+            'breadcrumbs' => [base_url('admin/business-types') => 'Business Types'],
+            'formConfig'  => [
+                'form_id'  => 'business-type-form',
+                'title'    => ['create' => 'New Business Type', 'view' => 'Business Type Detail'][$mode],
+                'subtitle' => 'Fields marked with * are required; a name is needed in every language',
+                'mode'     => $mode,
+                'id_field' => 'public_id',
+                'id'       => $values['public_id'] ?? '',
+                'method'   => 'POST',
+                'locale'   => LOCALE,
+                'urls'     => [
+                    'submit' => base_url('admin/business-types/save'),
+                    'edit'   => base_url('admin/business-types/edit/' . rawurlencode($publicId)),
+                    'list'   => base_url('admin/business-types'),
+                ],
+                'values'   => $values,
+                'fields'   => array_values($fields),
+            ],
+        ];
+        return view('generic_form', $data);
+    }
+
+    /**
+     * Save a business type: an empty public_id creates one through LINK_INTERNAL_API v1/staff/business-type/create,
+     * otherwise the one with that public_id is updated through v1/staff/business-type/edit (type_code is fixed there)
+     * @return ResponseInterface
+     */
+    public function businessTypesEditPost(): ResponseInterface
+    {
+        $post     = (array) $this->request->getPost();
+        $publicId = trim((string) ($post['public_id'] ?? ''));
+        $create   = '' === $publicId;
+
+        $names = [];
+        foreach (array_keys(listSupportedLanguages()) as $language) {
+            $names[$language] = trim((string) ($post[self::typeNameField($language)] ?? ''));
+        }
+        $payload = ['type_status' => (string) ($post['type_status'] ?? ''), 'translations' => $names];
+        $payload = $create
+            ? ['type_code' => trim((string) ($post['type_code'] ?? ''))] + $payload
+            : ['public_id' => $publicId] + $payload;
+
+        [$code, $body] = $this->callApi('v1/staff/business-type/' . ($create ? 'create' : 'edit'), $payload);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            // the API names a name's error translations.{language}; the form's field is type_name_{language}
+            $errors = [];
+            foreach ((array) ($body['errors'] ?? []) as $field => $message) {
+                $language          = str_starts_with($field, 'translations.') ? substr($field, strlen('translations.')) : null;
+                $errors[null === $language ? $field : self::typeNameField($language)] = $message;
+            }
+            $body['errors'] = $errors ?: null;
+            return $this->saveFailed($code, $body, 'Could not save the business type. Please try again.');
+        }
+
+        return $this->response->setJSON([
+            'success'   => true,
+            'message'   => $body['message'] ?? 'Saved.',
+            'redirect'  => base_url('admin/business-types/edit/' . rawurlencode((string) ($body['data']['public_id'] ?? $publicId))),
+            'csrf_hash' => csrf_hash(),
+        ]);
+    }
+
+    /**
+     * Table Builder configuration of the business type list, shared by the page and its JSON endpoint:
+     * the code, a name column for every supported language, and the status
+     * @return array
+     */
+    private function businessTypesListConfig(): array
+    {
+        $fields  = (new BusinessTypeModel())->getConfiguration();
+        $columns = [BusinessTypeModel::toColumns(['type_code' => $fields['type_code']])[0]];
+        foreach (listSupportedLanguages() as $language => $languageName) {
+            $name      = self::typeNameField($language);
+            $columns[] = ['data' => $name, 'db' => $name, 'title' => $languageName];
+        }
+        $columns[] = BusinessTypeModel::toColumns(['type_status' => $fields['type_status']])[0];
+        return [
+            'table_id'    => 'businessTypeTable',
+            'title'       => 'Business Types',
+            'subtitle'    => 'The types a client picks for a business, with their names in every supported language',
+            'id_field'    => 'public_id',
+            'urls'        => [
+                'data'   => base_url('admin/business-types'),
+                'create' => base_url('admin/business-types/create'),
+                'edit'   => base_url('admin/business-types/edit/{public_id}'),
+            ],
+            'labels'      => ['add' => 'Add Business Type'],
+            'columns'     => $columns,
+            'filters'     => BusinessTypeModel::toFilters($fields, ['type_status']),
+            'order'       => [['type_code', 'asc']],
+            'page_length' => 25,
+        ];
+    }
+
+    /**
+     * Every business type with its names, from LINK_INTERNAL_API v1/staff/business-types
+     * @return list<array{public_id: string, type_code: string, type_status: string, translations: array<string, string>}>
+     * @throws RuntimeException When the API call fails, with the message to show
+     */
+    private function businessTypeRows(): array
+    {
+        [$code, $body] = $this->callApi('v1/staff/business-types', []);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            throw new RuntimeException($body['message'] ?? 'Could not load the business types. Please try again.');
+        }
+        return (array) ($body['data']['rows'] ?? []);
+    }
+
+    /**
+     * A business type from the API with its translations as type_name_{language} keys, for the table and the form
+     * @param array $row
+     * @return array
+     */
+    private static function flattenTypeNames(array $row): array
+    {
+        foreach ((array) ($row['translations'] ?? []) as $language => $name) {
+            $row[self::typeNameField((string) $language)] = $name;
+        }
+        unset($row['translations']);
+        return $row;
+    }
+
+    /**
+     * The form field and table column of a business type's name in $language: type_name_en_US, type_name_th
+     * @param string $language
+     * @return string
+     */
+    private static function typeNameField(string $language): string
+    {
+        return 'type_name_' . str_replace('-', '_', $language);
     }
 
     /**
