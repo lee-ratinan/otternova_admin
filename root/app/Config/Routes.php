@@ -51,6 +51,11 @@ $routes->group('admin', ['filter' => 'auth'], static function($routes) {
     $routes->get('settings/languages', 'Settings::languages'); // complete
     $routes->get('settings/countries', 'Settings::countries'); // complete
     $routes->get('settings/countries/view/(:alpha)', 'Settings::countriesView/$1');
+
+    // JSON lookups for the pages' scripts; see App\Controllers\ApiList
+    $routes->post('api/telephone-format-e164', 'ApiList::telephoneFormatE164');
+    $routes->match(['GET', 'POST'], 'api/subdivisions', 'ApiList::subdivisions');
+    $routes->match(['GET', 'POST'], 'api/currencies', 'ApiList::currencies');
 });
 
 // The ledger: staff of the Executive Office and Finance only (LEDGER_DEPARTMENTS; the API checks the same)
