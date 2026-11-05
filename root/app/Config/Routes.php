@@ -58,7 +58,7 @@ $routes->group('admin', ['filter' => 'auth'], static function($routes) {
     $routes->match(['GET', 'POST'], 'api/currencies', 'ApiList::currencies');
 });
 
-// Plans, prices, payment methods and discounts: staff of the Executive Office and Finance only (PLAN_DEPARTMENTS; the API checks the same)
+// Plans, prices, payment methods, discounts and the businesses' subscriptions: staff of the Executive Office and Finance only (PLAN_DEPARTMENTS; the API checks the same)
 $routes->group('admin', ['filter' => ['auth', 'department:EXE,FIN']], static function($routes) {
     // plans are in the URL by plan_code, payment methods by method_code, prices and discounts by public_id
     $routes->get('plans', 'Plans::plans');
@@ -82,6 +82,16 @@ $routes->group('admin', ['filter' => ['auth', 'department:EXE,FIN']], static fun
     $routes->get('discounts/create', 'Plans::discountsEdit/create');
     $routes->get('discounts/edit/(:segment)', 'Plans::discountsEdit/$1');
     $routes->post('discounts/save', 'Plans::discountsEditPost');
+    // the businesses' subscriptions, invoices and payments, by public_id; see App\Controllers\ClientBilling
+    $routes->get('clients/subscriptions', 'ClientBilling::subscriptions');
+    $routes->post('clients/subscriptions', 'ClientBilling::subscriptionsList');
+    $routes->get('clients/subscriptions/view/(:segment)', 'ClientBilling::subscriptionView/$1');
+    $routes->get('clients/invoices', 'ClientBilling::invoices');
+    $routes->post('clients/invoices', 'ClientBilling::invoicesList');
+    $routes->get('clients/invoices/view/(:segment)', 'ClientBilling::invoiceView/$1');
+    $routes->get('clients/invoices/slip/(:segment)', 'ClientBilling::slip/$1');
+    $routes->post('clients/invoices/payment/approve', 'ClientBilling::approvePayment');
+    $routes->post('clients/invoices/payment/reject', 'ClientBilling::rejectPayment');
 });
 
 // The ledger: staff of the Executive Office and Finance only (LEDGER_DEPARTMENTS; the API checks the same)

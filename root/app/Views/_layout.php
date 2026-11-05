@@ -216,7 +216,10 @@
             <?php endif; ?>
             <!-- CONTRACTS -->
             <li class="nav-heading"><span>Clients</span></li>
-            <li class="nav-item"><a class="nav-link <?= ('clients-contracts' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/clients/contracts') ?>"><span class="nav-icon"><i class="bi bi-file-earmark-ruled"></i></span><span class="nav-text">Contracts</span></a></li>
+            <?php if (inDepartment(PLAN_DEPARTMENTS)) : // the Executive Office and Finance only; see App\Filters\DepartmentFilter ?>
+            <li class="nav-item"><a class="nav-link <?= ('clients-subscriptions' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/clients/subscriptions') ?>"><span class="nav-icon"><i class="bi bi-file-earmark-ruled"></i></span><span class="nav-text">Subscriptions</span></a></li>
+            <li class="nav-item"><a class="nav-link <?= ('clients-invoices' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/clients/invoices') ?>"><span class="nav-icon"><i class="bi bi-receipt"></i></span><span class="nav-text">Invoices &amp; Payments</span></a></li>
+            <?php endif; ?>
             <li class="nav-item"><a class="nav-link <?= ('clients-businesses' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/clients/businesses') ?>"><span class="nav-icon"><i class="bi bi-suitcase-lg"></i></span><span class="nav-text">Businesses</span></a></li>
             <li class="nav-item"><a class="nav-link <?= ('clients-users' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/clients/users') ?>"><span class="nav-icon"><i class="bi bi-person-gear"></i></span><span class="nav-text">Users</span></a></li>
             <li class="nav-item"><a class="nav-link <?= ('clients-reports' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/clients/reports') ?>"><span class="nav-icon"><i class="bi bi-file-bar-graph"></i></span><span class="nav-text">Reports</span></a></li>
