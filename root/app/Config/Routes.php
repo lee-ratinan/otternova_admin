@@ -58,6 +58,32 @@ $routes->group('admin', ['filter' => 'auth'], static function($routes) {
     $routes->match(['GET', 'POST'], 'api/currencies', 'ApiList::currencies');
 });
 
+// Plans, prices, payment methods and discounts: staff of the Executive Office and Finance only (PLAN_DEPARTMENTS; the API checks the same)
+$routes->group('admin', ['filter' => ['auth', 'department:EXE,FIN']], static function($routes) {
+    // plans are in the URL by plan_code, payment methods by method_code, prices and discounts by public_id
+    $routes->get('plans', 'Plans::plans');
+    $routes->post('plans', 'Plans::plansList');
+    $routes->get('plans/create', 'Plans::plansEdit/create');
+    $routes->get('plans/edit/(:segment)', 'Plans::plansEdit/$1');
+    $routes->post('plans/save', 'Plans::plansEditPost');
+    $routes->get('plan-prices', 'Plans::prices');
+    $routes->post('plan-prices', 'Plans::pricesList');
+    $routes->get('plan-prices/create', 'Plans::pricesEdit/create');
+    $routes->get('plan-prices/view/(:segment)', 'Plans::pricesEdit/$1');
+    $routes->post('plan-prices/save', 'Plans::pricesEditPost');
+    $routes->post('plan-prices/cancel', 'Plans::pricesCancel');
+    $routes->get('payment-methods', 'Plans::paymentMethods');
+    $routes->post('payment-methods', 'Plans::paymentMethodsList');
+    $routes->get('payment-methods/create', 'Plans::paymentMethodsEdit/create');
+    $routes->get('payment-methods/edit/(:segment)', 'Plans::paymentMethodsEdit/$1');
+    $routes->post('payment-methods/save', 'Plans::paymentMethodsEditPost');
+    $routes->get('discounts', 'Plans::discounts');
+    $routes->post('discounts', 'Plans::discountsList');
+    $routes->get('discounts/create', 'Plans::discountsEdit/create');
+    $routes->get('discounts/edit/(:segment)', 'Plans::discountsEdit/$1');
+    $routes->post('discounts/save', 'Plans::discountsEditPost');
+});
+
 // The ledger: staff of the Executive Office and Finance only (LEDGER_DEPARTMENTS; the API checks the same)
 $routes->group('admin/ledger', ['filter' => ['auth', 'department:EXE,FIN']], static function($routes) {
     $routes->get('/', 'Ledger::entries');

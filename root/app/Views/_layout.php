@@ -208,6 +208,12 @@
             <!-- BUSINESS -->
             <li class="nav-heading"><span>Businesses</span></li>
             <li class="nav-item"><a class="nav-link <?= ('business-types' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/business-types') ?>"><span class="nav-icon"><i class="bi bi-ui-radios"></i></span><span class="nav-text">Business Types</span></a></li>
+            <?php if (inDepartment(PLAN_DEPARTMENTS)) : // the Executive Office and Finance only; see App\Filters\DepartmentFilter ?>
+            <li class="nav-item"><a class="nav-link <?= ('plans' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/plans') ?>"><span class="nav-icon"><i class="bi bi-currency-dollar"></i></span><span class="nav-text">Plans</span></a></li>
+            <li class="nav-item"><a class="nav-link <?= ('plan-prices' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/plan-prices') ?>"><span class="nav-icon"><i class="bi bi-graph-up-arrow"></i></span><span class="nav-text">Plan Prices</span></a></li>
+            <li class="nav-item"><a class="nav-link <?= ('payment-methods' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/payment-methods') ?>"><span class="nav-icon"><i class="bi bi-cash-coin"></i></span><span class="nav-text">Payment Methods</span></a></li>
+            <li class="nav-item"><a class="nav-link <?= ('discounts' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/discounts') ?>"><span class="nav-icon"><i class="bi bi-percent"></i></span><span class="nav-text">Discounts</span></a></li>
+            <?php endif; ?>
             <!-- CONTRACTS -->
             <li class="nav-heading"><span>Clients</span></li>
             <li class="nav-item"><a class="nav-link <?= ('clients-contracts' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/clients/contracts') ?>"><span class="nav-icon"><i class="bi bi-file-earmark-ruled"></i></span><span class="nav-text">Contracts</span></a></li>

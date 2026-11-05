@@ -87,3 +87,5 @@ define('META_KEYWORDS', 'admin portal, backoffice, OtterNova');
 define('LOCALE', 'en-US');
 // otternova_department.department_code values that may use the ledger (the API checks the same list)
 define('LEDGER_DEPARTMENTS', ['EXE', 'FIN']);
+// ... and that may manage the plans, prices, payment methods and discounts (the API checks the same list)
+define('PLAN_DEPARTMENTS', ['EXE', 'FIN']);
