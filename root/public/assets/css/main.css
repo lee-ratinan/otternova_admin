@@ -79,9 +79,9 @@
   --background-color: #f4f7fb;
   --default-color: #1c2635;
   --heading-color: #0f1728;
-  --accent-color: #0ea5a4;
-  --project-color: #0ea5a4;
-  --stage-color: #0ea5a4;
+  --accent-color: #c97232;
+  --project-color: #c97232;
+  --stage-color: #c97232;
   --surface-color: #ffffff;
   --contrast-color: #ffffff;
   /* Extended text colors */
@@ -142,7 +142,7 @@
   --background-color: #08141a;
   --default-color: #d2e1e7;
   --heading-color: #f3f7ff;
-  --accent-color: #22d3ce;
+  --accent-color: #c97232;
   --surface-color: #11222c;
   --contrast-color: #ffffff;
   /* Extended text colors */
