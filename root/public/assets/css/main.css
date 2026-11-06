@@ -76,12 +76,12 @@
 --------------------------------------------------------------*/
 :root {
   /* Core palette */
-  --background-color: #f4cfab;
+  --background-color: #f4f7fb;
   --default-color: #1c2635;
-  --heading-color: #994202;
-  --accent-color: #c97232;
-  --project-color: #c97232;
-  --stage-color: #c97232;
+  --heading-color: #0f1728;
+  --accent-color: #0ea5a4;
+  --project-color: #0ea5a4;
+  --stage-color: #0ea5a4;
   --surface-color: #ffffff;
   --contrast-color: #ffffff;
   /* Extended text colors */
@@ -114,7 +114,7 @@
   /* Sidebar */
   --sidebar-bg: #ffffff;
   --sidebar-border: #d9e3f1;
-  --sidebar-color: #894202;
+  --sidebar-color: #223248;
   --sidebar-muted-color: #6b809d;
   --sidebar-hover-bg: rgba(14, 165, 164, 0.1);
   --sidebar-active-bg: rgba(14, 165, 164, 0.16);
@@ -139,11 +139,11 @@
 --------------------------------------------------------------*/
 [data-theme=dark] {
   /* Core palette */
-  --background-color: #38240a;
+  --background-color: #08141a;
   --default-color: #d2e1e7;
   --heading-color: #f3f7ff;
-  --accent-color: #c97232;
-  --surface-color: #33222c;
+  --accent-color: #22d3ce;
+  --surface-color: #11222c;
   --contrast-color: #ffffff;
   /* Extended text colors */
   --muted-color: #95aebe;
@@ -181,7 +181,7 @@
   --sidebar-active-bg: rgba(34, 211, 206, 0.2);
   --sidebar-active-color: #ffffff;
   /* Cards */
-  --card-bg: #431100;
+  --card-bg: #11222c;
   --card-shadow: 0 14px 36px -20px rgb(0 0 0 / 0.75), 0 8px 16px -12px rgb(6 14 21 / 0.82);
   --card-border: var(--border-color);
   /* Tables */
@@ -1449,12 +1449,12 @@ button {
   border-radius: var(--radius-md) !important;
   box-shadow: var(--shadow-lg) !important;
   padding: var(--spacing-sm) var(--spacing-md) !important;
-  font-family: var(--font-default), sans-serif; !important;
+  font-family: var(--font-default), sans-serif !important;
 }
 
 /* ECharts */
 .echarts-tooltip {
-  font-family: var(--font-default), sans-serif; !important;
+  font-family: var(--font-default), sans-serif !important;
 }
 
 /* Chart Containers */
@@ -1589,7 +1589,7 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-family: var(--heading-font), sans-serif;;
+  font-family: var(--heading-font), sans-serif;
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--heading-color);
