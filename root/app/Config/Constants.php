@@ -89,3 +89,5 @@ define('LOCALE', 'en-US');
 define('LEDGER_DEPARTMENTS', ['EXE', 'FIN']);
 // ... and that may manage the plans, prices, payment methods and discounts (the API checks the same list)
 define('PLAN_DEPARTMENTS', ['EXE', 'FIN']);
+// ... and that may read the activity log, which holds every table's changes (the API checks the same list)
+define('LOG_DEPARTMENTS', ['EXE']);

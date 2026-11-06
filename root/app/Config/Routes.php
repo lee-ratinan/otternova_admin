@@ -94,6 +94,13 @@ $routes->group('admin', ['filter' => ['auth', 'department:EXE,FIN']], static fun
     $routes->post('clients/invoices/payment/reject', 'ClientBilling::rejectPayment');
 });
 
+// The activity log: staff of the Executive Office only (LOG_DEPARTMENTS; the API checks the same)
+$routes->group('admin/logs', ['filter' => ['auth', 'department:EXE']], static function($routes) {
+    // ?table=plan_master&id=12&search=PLUS links to one record's history; see App\Controllers\Logs
+    $routes->get('activities', 'Logs::activities');
+    $routes->post('activities', 'Logs::activitiesList');
+});
+
 // The ledger: staff of the Executive Office and Finance only (LEDGER_DEPARTMENTS; the API checks the same)
 $routes->group('admin/ledger', ['filter' => ['auth', 'department:EXE,FIN']], static function($routes) {
     $routes->get('/', 'Ledger::entries');

@@ -236,6 +236,9 @@
             <?php endif; ?>
             <!-- LOGS -->
             <li class="nav-heading"><span>Maintenance</span></li>
+            <?php if (inDepartment(LOG_DEPARTMENTS)) : // the Executive Office only; see App\Filters\DepartmentFilter ?>
+            <li class="nav-item"><a class="nav-link <?= ('logs-activities' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/logs/activities') ?>"><span class="nav-icon"><i class="bi bi-list-stars"></i></span><span class="nav-text">Activity Logs</span></a></li>
+            <?php endif; ?>
             <li class="nav-item"><a class="nav-link <?= ('logs-error' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/logs/errors') ?>"><span class="nav-icon"><i class="bi bi-bug"></i></span><span class="nav-text">Error Logs</span></a></li>
             <li class="nav-item"><a class="nav-link <?= ('logs-emails' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/logs/emails') ?>"><span class="nav-icon"><i class="bi bi-envelope"></i></span><span class="nav-text">Email Logs</span></a></li>
             <!-- SETTINGS -->
