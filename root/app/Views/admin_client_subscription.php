@@ -68,7 +68,7 @@ $rows['Created'] = B::time($s['created_at'] ?? null);
                                         <th>Invoice No.</th>
                                         <th>Plan</th>
                                         <th>Period</th>
-                                        <th class="text-end">Amount Due</th>
+                                        <th class="text-end">To Pay</th>
                                         <th>Due</th>
                                         <th>Status</th>
                                         <th>Payments</th>
@@ -82,7 +82,9 @@ $rows['Created'] = B::time($s['created_at'] ?? null);
                                             <td class="text-nowrap"><?= esc($invoice['invoice_no']) ?></td>
                                             <td><?= esc($invoice['plan_code'] . ' · ' . (B::BILLING_CYCLES[$invoice['billing_cycle']] ?? $invoice['billing_cycle'])) ?></td>
                                             <td><?= B::period($invoice['period_start'] ?? null, $invoice['period_end'] ?? null) ?></td>
-                                            <td class="text-end text-nowrap"><?= esc(B::money($invoice['currency_code'], $invoice['amount_due'])) ?></td>
+                                            <td class="text-end text-nowrap"><?= esc(B::money($invoice['currency_code'], $invoice['amount_payable'] ?? $invoice['amount_due'])) ?>
+                                                <?php if ('W' === ($invoice['invoice_type'] ?? 'S')): ?><div class="small text-secondary">Tax top-up of <?= esc((string) ($invoice['parent_invoice_no'] ?? '')) ?></div>
+                                                <?php elseif (! empty($invoice['wht_amount']) && 0.0 !== (float) $invoice['wht_amount']): ?><div class="small text-secondary"><?= esc(B::money($invoice['currency_code'], $invoice['wht_amount'])) ?> withheld · <?= esc(B::CERT_STATUSES[$invoice['wht_cert_status'] ?? '']['label'] ?? '') ?></div><?php endif ?></td>
                                             <td><?= B::time($invoice['due_at'] ?? null) ?></td>
                                             <td><?= B::badge(B::INVOICE_STATUSES, $invoice['invoice_status'] ?? null) ?></td>
                                             <td>

@@ -92,6 +92,11 @@ $routes->group('admin', ['filter' => ['auth', 'department:EXE,FIN']], static fun
     $routes->get('clients/invoices/slip/(:segment)', 'ClientBilling::slip/$1');
     $routes->post('clients/invoices/payment/approve', 'ClientBilling::approvePayment');
     $routes->post('clients/invoices/payment/reject', 'ClientBilling::rejectPayment');
+    $routes->get('clients/withholding', 'ClientBilling::withholding');
+    $routes->post('clients/withholding/review', 'ClientBilling::reviewWithholding');
+    $routes->post('clients/withholding/certificate/accept', 'ClientBilling::acceptCertificate');
+    $routes->post('clients/withholding/certificate/reject', 'ClientBilling::rejectCertificate');
+    $routes->get('clients/withholding/certificate/(:segment)', 'ClientBilling::certificateFile/$1');
 });
 
 // The activity log: staff of the Executive Office only (LOG_DEPARTMENTS; the API checks the same)

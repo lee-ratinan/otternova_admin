@@ -32,6 +32,23 @@ class ClientBilling extends BaseController
         'S' => ['label' => 'Approved', 'class' => 'bg-success'],
         'F' => ['label' => 'Rejected', 'class' => 'bg-danger'],
     ];
+    public const WHT_STATUSES = [
+        'R' => ['label' => 'Waiting for review', 'class' => 'bg-warning text-dark'],
+        'A' => ['label' => 'Approved', 'class' => 'bg-success'],
+        'N' => ['label' => 'Not withholding', 'class' => 'bg-secondary'],
+    ];
+    public const CERT_STATUSES = [
+        'N' => ['label' => 'Not needed', 'class' => 'bg-secondary'],
+        'W' => ['label' => 'Waiting for certificate', 'class' => 'bg-warning text-dark'],
+        'U' => ['label' => 'Certificate to review', 'class' => 'bg-info text-dark'],
+        'A' => ['label' => 'Certificate accepted', 'class' => 'bg-success'],
+        'T' => ['label' => 'Billed as top-up', 'class' => 'bg-danger'],
+    ];
+    public const CERTIFICATE_STATUSES = [
+        'P' => ['label' => 'Waiting for review', 'class' => 'bg-warning text-dark'],
+        'A' => ['label' => 'Accepted', 'class' => 'bg-success'],
+        'R' => ['label' => 'Rejected', 'class' => 'bg-danger'],
+    ];
     public const BILLING_CYCLES = ['M' => 'Monthly', 'Y' => 'Yearly'];
     public const BILLING_MODES  = ['A' => 'Automatic', 'M' => 'Manual'];
 
@@ -123,7 +140,7 @@ class ClientBilling extends BaseController
         return $this->apiList($config, 'v1/staff/subscriptions/invoices', 'Could not load the invoices. Please try again.', static function (array $row): array {
             $row['business']     = self::businessLabel($row);
             $row['plan']         = $row['plan_code'] . ' · ' . (self::BILLING_CYCLES[$row['billing_cycle']] ?? $row['billing_cycle']);
-            $row['amount_label'] = self::money($row['currency_code'], $row['amount_due']);
+            $row['amount_label'] = self::money($row['currency_code'], $row['amount_payable'] ?? $row['amount_due']);
             $row['review']       = $row['pending_payments'] > 0 ? 'Y' : 'N';
             return $row;
         });
@@ -186,29 +203,121 @@ class ClientBilling extends BaseController
      */
     public function slip(string $publicId): ResponseInterface
     {
+        return $this->passFile('v1/staff/subscriptions/slip/' . rawurlencode($publicId), 'slip-' . $publicId, 'This payment has no slip.');
+    }
+
+    /**
+     * An image or PDF from LINK_INTERNAL_API, passed on with the signed-in user's JWT, never cached
+     * @param string $endpoint
+     * @param string $name     The file name, before its extension
+     * @param string $missing  The message of the 404 when there is none
+     * @return ResponseInterface
+     */
+    private function passFile(string $endpoint, string $name, string $missing): ResponseInterface
+    {
         try {
-            $response = service('curlrequest')->get(getenv('LINK_INTERNAL_API') . 'v1/staff/subscriptions/slip/' . rawurlencode($publicId), [
+            $response = service('curlrequest')->get(getenv('LINK_INTERNAL_API') . $endpoint, [
                 'headers'     => ['Authorization' => 'Bearer ' . session()->get('access_token')],
                 'timeout'     => 30,
                 'http_errors' => false,
             ]);
         } catch (Throwable $e) {
-            log_message('error', 'LINK_INTERNAL_API v1/staff/subscriptions/slip failed: ' . $e->getMessage());
-            throw new RuntimeException('Could not load the slip.');
+            log_message('error', 'LINK_INTERNAL_API ' . $endpoint . ' failed: ' . $e->getMessage());
+            throw new RuntimeException('Could not load the file.');
         }
         $type = strtok($response->getHeaderLine('Content-Type'), ';');
         if ($response->getStatusCode() !== 200 || ! in_array($type, ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'], true)) {
-            throw PageNotFoundException::forPageNotFound('This payment has no slip.');
+            throw PageNotFoundException::forPageNotFound($missing);
         }
         $extension = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'application/pdf' => 'pdf'][$type];
 
         return $this->response
             ->removeHeader('Cache-Control')
             ->setHeader('Cache-Control', 'private, no-store')
-            ->setHeader('Content-Disposition', 'inline; filename="slip-' . preg_replace('/[^0-9A-Za-z_-]/', '', $publicId) . '.' . $extension . '"')
+            ->setHeader('Content-Disposition', 'inline; filename="' . preg_replace('/[^0-9A-Za-z_-]/', '', $name) . '.' . $extension . '"')
             ->setHeader('X-Content-Type-Options', 'nosniff')
             ->setContentType($type, '')
             ->setBody($response->getBody());
+    }
+
+    // ---- withholding tax ----
+
+    /**
+     * Withholding tax: the businesses asking to withhold (?requests=R|A|N), and the certificates sent for the tax
+     * withheld (?certificates=P|A|R), the ones waiting first. Both are reviewed on this page.
+     * @return string
+     */
+    public function withholding(): string
+    {
+        $requestStatus = strtoupper((string) $this->request->getGet('requests'));
+        $requestStatus = isset(self::WHT_STATUSES[$requestStatus]) ? $requestStatus : 'R';
+        $certStatus    = strtoupper((string) $this->request->getGet('certificates'));
+        $certStatus    = isset(self::CERTIFICATE_STATUSES[$certStatus]) ? $certStatus : 'P';
+
+        [$code, $body] = $this->callApi('v1/staff/subscriptions/withholding', ['start' => 0, 'length' => 100, 'filters' => ['wht_status' => $requestStatus]]);
+        $requests      = $code === 200 && ($body['status'] ?? '') === 'success' ? (array) ($body['data']['rows'] ?? []) : null;
+        [$code, $body] = $this->callApi('v1/staff/subscriptions/certificates', ['start' => 0, 'length' => 100, 'filters' => ['cert_status' => $certStatus]]);
+        $certificates  = $code === 200 && ($body['status'] ?? '') === 'success' ? (array) ($body['data']['rows'] ?? []) : null;
+
+        return view('admin_client_withholding', [
+            'page_title'    => 'Withholding Tax',
+            'slug'          => 'clients-withholding',
+            'requestStatus' => $requestStatus,
+            'certStatus'    => $certStatus,
+            'requests'      => $requests,
+            'certificates'  => $certificates,
+        ]);
+    }
+
+    /**
+     * Approve (A) or turn down (N) a business's request to withhold tax, through LINK_INTERNAL_API
+     * v1/staff/subscriptions/withholding/review: { business_slug, wht_status }
+     * @return ResponseInterface
+     */
+    public function reviewWithholding(): ResponseInterface
+    {
+        [$code, $body] = $this->callApi('v1/staff/subscriptions/withholding/review', [
+            'business_slug' => trim((string) $this->request->getPost('business_slug')),
+            'wht_status'    => trim((string) $this->request->getPost('wht_status')),
+        ]);
+        return $this->reviewed($code, $body, 'Could not save the decision. Please try again.');
+    }
+
+    /**
+     * Accept a certificate through LINK_INTERNAL_API v1/staff/subscriptions/certificate/accept; the message names a
+     * paid top-up to refund
+     * @return ResponseInterface
+     */
+    public function acceptCertificate(): ResponseInterface
+    {
+        [$code, $body] = $this->callApi('v1/staff/subscriptions/certificate/accept', [
+            'public_id' => trim((string) $this->request->getPost('public_id')),
+        ]);
+        return $this->reviewed($code, $body, 'Could not accept the certificate. Please try again.');
+    }
+
+    /**
+     * Reject a certificate through LINK_INTERNAL_API v1/staff/subscriptions/certificate/reject, with the reason the
+     * business is shown; it can send another
+     * @return ResponseInterface
+     */
+    public function rejectCertificate(): ResponseInterface
+    {
+        [$code, $body] = $this->callApi('v1/staff/subscriptions/certificate/reject', [
+            'public_id'        => trim((string) $this->request->getPost('public_id')),
+            'rejection_reason' => trim((string) $this->request->getPost('rejection_reason')),
+        ]);
+        return $this->reviewed($code, $body, 'Could not reject the certificate. Please try again.');
+    }
+
+    /**
+     * A certificate's file, passed on from LINK_INTERNAL_API GET v1/staff/subscriptions/certificate-file/{public_id}
+     * @param string $publicId The certificate's
+     * @return ResponseInterface
+     */
+    public function certificateFile(string $publicId): ResponseInterface
+    {
+        return $this->passFile('v1/staff/subscriptions/certificate-file/' . rawurlencode($publicId), 'certificate-' . $publicId, 'This certificate has no file.');
     }
 
     // ---- configuration ----
@@ -266,7 +375,7 @@ class ClientBilling extends BaseController
                 self::column('invoice_no', 'Invoice No.', ['searchable' => true, 'class' => 'text-nowrap']),
                 self::column('business', 'Business', ['searchable' => true]),
                 self::column('plan', 'Plan'),
-                self::column('amount_label', 'Amount Due', ['class' => 'text-end text-nowrap']),
+                self::column('amount_label', 'To Pay', ['class' => 'text-end text-nowrap']),
                 self::column('due_at', 'Due', ['type' => 'datetime']),
                 self::column('invoice_status', 'Status', ['type' => 'badge', 'badges' => self::INVOICE_STATUSES]),
                 self::column('review', 'Payment', ['type' => 'badge', 'badges' => [

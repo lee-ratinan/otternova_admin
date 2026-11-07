@@ -23,8 +23,25 @@ $rows     = [
     'Discount'     => empty($i['discount_code']) ? '<span class="text-muted">&mdash;</span>'
         : '− ' . $money($i['discount_amount'] ?? null) . ' <code>' . esc($i['discount_code']) . '</code>',
     'Amount due'   => '<strong>' . $money($i['amount_due'] ?? null) . '</strong>',
-    'Due'          => B::time($i['due_at'] ?? null),
 ];
+$isTopUp  = 'W' === ($i['invoice_type'] ?? 'S');
+$withheld = ! empty($i['wht_amount']) && 0.0 !== (float) $i['wht_amount'];
+if ($isTopUp) {
+    $rows = ['Top-up of' => '<span class="badge bg-danger">Withholding tax top-up</span> of invoice '
+        . '<a href="' . esc(base_url('admin/clients/invoices/view/' . rawurlencode((string) ($i['parent_invoice_public_id'] ?? ''))), 'attr') . '">'
+        . esc((string) ($i['parent_invoice_no'] ?? '')) . '</a>, whose certificate never came'] + $rows;
+    unset($rows['Period'], $rows['List price'], $rows['Discount']);
+}
+if ($withheld) {
+    $rows['Withholding tax'] = '− ' . $money($i['wht_amount']) . ' <span class="text-secondary">(' . esc((string) ($i['wht_rate'] ?? '')) . '%)</span>';
+    $rows['To pay']          = '<strong>' . $money($i['amount_payable'] ?? null) . '</strong>';
+    $rows['Certificate']     = 'N' === ($i['wht_cert_status'] ?? 'N') && 'P' === ($i['invoice_status'] ?? '')
+        ? '<span class="text-secondary">Wanted once paid</span>'
+        : B::badge(B::CERT_STATUSES, $i['wht_cert_status'] ?? null)
+            . (empty($i['wht_cert_due_at']) ? '' : ' <span class="text-secondary">due</span> ' . B::time($i['wht_cert_due_at']));
+}
+$rows['Due'] = B::time($i['due_at'] ?? null);
+$certificates = (array) ($i['certificates'] ?? []);
 if (! empty($i['paid_at'])) {
     $rows['Paid'] = B::time($i['paid_at']);
 }
@@ -80,7 +97,7 @@ $rows['Issued'] = B::time($i['created_at'] ?? null);
                             <?php if (! empty($payment['provider_ref'])): ?>
                                 <p>Provider reference: <code><?= esc($payment['provider_ref']) ?></code></p>
                             <?php endif ?>
-                            <p class="mb-2">Check that <strong><?= $money($i['amount_due'] ?? null) ?></strong> arrived, then:</p>
+                            <p class="mb-2">Check that <strong><?= $money($i['amount_payable'] ?? $i['amount_due'] ?? null) ?></strong> arrived<?= $withheld ? ' (the amount due less the tax withheld)' : '' ?>, then:</p>
                             <div class="mb-3">
                                 <label class="form-label" for="reason-<?= esc($payment['public_id'], 'attr') ?>">Reason, if rejected</label>
                                 <textarea class="form-control" id="reason-<?= esc($payment['public_id'], 'attr') ?>" rows="2" maxlength="255" data-reason
@@ -150,6 +167,47 @@ $rows['Issued'] = B::time($i['created_at'] ?? null);
                         <?php endif ?>
                     </div>
                 </div>
+
+                <?php if ([] !== $certificates): ?>
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="card-title">Withholding Tax Certificates</h5>
+                        <p class="card-subtitle">Every certificate sent for this invoice, oldest first; review them under <a href="<?= esc(base_url('admin/clients/withholding'), 'attr') ?>">Withholding Tax</a></p>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table align-middle">
+                                <thead>
+                                <tr><th>Sent</th><th>No.</th><th class="text-end">Withheld</th><th>Status</th><th>Reviewed</th><th>File</th></tr>
+                                </thead>
+                                <tbody>
+                                <?php foreach ($certificates as $cert): ?>
+                                    <tr>
+                                        <td><?= B::time($cert['created_at'] ?? null) ?></td>
+                                        <td><?= esc((string) ($cert['certificate_no'] ?? '')) ?><div class="small text-secondary"><?= esc((string) ($cert['issued_on'] ?? '')) ?></div></td>
+                                        <td class="text-end text-nowrap"><?= $money($cert['wht_amount'] ?? null) ?></td>
+                                        <td>
+                                            <?= B::badge(B::CERTIFICATE_STATUSES, $cert['cert_status'] ?? null) ?>
+                                            <?php if (! empty($cert['rejection_reason'])): ?><div class="small text-secondary"><?= esc($cert['rejection_reason']) ?></div><?php endif ?>
+                                        </td>
+                                        <td>
+                                            <?php if (! empty($cert['reviewed_at'])): ?>
+                                                <?= esc((string) ($cert['reviewed_by_name'] ?? '')) ?><div class="small"><?= B::time($cert['reviewed_at']) ?></div>
+                                            <?php else: ?><span class="text-muted">&mdash;</span><?php endif ?>
+                                        </td>
+                                        <td>
+                                            <?php if (! empty($cert['has_file'])): ?>
+                                                <a href="<?= esc(base_url('admin/clients/withholding/certificate/' . rawurlencode((string) $cert['public_id'])), 'attr') ?>" target="_blank" rel="noopener"><i class="bi bi-file-earmark-text"></i> Open</a>
+                                            <?php else: ?><span class="text-muted">&mdash;</span><?php endif ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <?php endif ?>
             </div>
         </div>
     </section>
