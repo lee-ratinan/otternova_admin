@@ -51,6 +51,8 @@ class ClientBilling extends BaseController
     ];
     public const BILLING_CYCLES = ['M' => 'Monthly', 'Y' => 'Yearly'];
     public const BILLING_MODES  = ['A' => 'Automatic', 'M' => 'Manual'];
+    /** The numbers of the billing documents, as the API issues them */
+    private const DOCUMENT_NUMBERS = ['invoice' => '/^INV-\d{6}-\d{6,}$/', 'receipt' => '/^RCT-\d{6}-\d{6,}$/'];
 
     // ---- subscriptions ----
 
@@ -107,6 +109,94 @@ class ClientBilling extends BaseController
             'subscription' => $subscription,
             'invoices'     => (array) ($body['data']['invoices'] ?? []),
         ]);
+    }
+
+    /**
+     * Suspend (S), reactivate (A) or cancel now (C) a subscription, through LINK_INTERNAL_API
+     * v1/staff/subscriptions/subscription/status: { public_id, subscription_status }. The API decides which change
+     * the subscription's status allows.
+     * @return ResponseInterface
+     */
+    public function setStatus(): ResponseInterface
+    {
+        [$code, $body] = $this->callApi('v1/staff/subscriptions/subscription/status', [
+            'public_id'           => trim((string) $this->request->getPost('public_id')),
+            'subscription_status' => strtoupper(trim((string) $this->request->getPost('subscription_status'))),
+        ]);
+        return $this->reviewed($code, $body, 'Could not change the subscription. Please try again.');
+    }
+
+    // ---- billing documents ----
+
+    /**
+     * GET admin/clients/documents/{invoice|receipt}/{number}[?download=1]
+     * An invoice (INV-...) or a receipt (RCT-...) as the API renders it (v1/staff/documents/*), the same page the
+     * business gets: opened in a new tab, where it prints on A4 or saves as PDF, or saved as an .html file with
+     * ?download=1, for a business that asks the staff for one
+     * @param string $kind   invoice or receipt
+     * @param string $number invoice_no or receipt_no
+     * @return ResponseInterface
+     */
+    public function document(string $kind, string $number): ResponseInterface
+    {
+        $number = strtoupper($number);
+        if (! isset(self::DOCUMENT_NUMBERS[$kind]) || ! preg_match(self::DOCUMENT_NUMBERS[$kind], $number)) {
+            throw PageNotFoundException::forPageNotFound('There is no such ' . $kind . '.');
+        }
+        $endpoint = 'v1/staff/documents/' . $kind . '/' . $number;
+        try {
+            $response = service('curlrequest')->get(getenv('LINK_INTERNAL_API') . $endpoint, [
+                'headers'     => ['Accept' => 'text/html', 'Authorization' => 'Bearer ' . session()->get('access_token')],
+                'timeout'     => 30,
+                'http_errors' => false,
+            ]);
+        } catch (Throwable $e) {
+            log_message('error', 'LINK_INTERNAL_API ' . $endpoint . ' failed: ' . $e->getMessage());
+            throw new RuntimeException('Could not load the ' . $kind . '. Please try again.');
+        }
+        $code = $response->getStatusCode();
+        if (404 === $code) {
+            throw PageNotFoundException::forPageNotFound('There is no such ' . $kind . '.');
+        }
+        if (200 !== $code || ! str_starts_with(strtolower($response->getHeaderLine('Content-Type')), 'text/html')) {
+            log_message('error', 'LINK_INTERNAL_API ' . $endpoint . ' returned HTTP ' . $code);
+            $body = json_decode((string) $response->getBody(), true);
+            throw new RuntimeException(is_array($body) && isset($body['message']) ? (string) $body['message'] : 'Could not load the ' . $kind . '. Please try again.');
+        }
+
+        // the page is the API's, so it keeps the API's policy: nothing but its own styles, fonts and embedded images
+        $disposition = '1' === $this->request->getGet('download') ? 'attachment' : 'inline';
+        return $this->response
+            ->removeHeader('Cache-Control')
+            ->setHeader('Cache-Control', 'private, no-store')
+            ->setHeader('Content-Disposition', $disposition . '; filename="' . $number . '.html"')
+            ->setHeader('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src data:; base-uri 'none'; form-action 'none'")
+            ->setHeader('X-Content-Type-Options', 'nosniff')
+            ->setHeader('Referrer-Policy', 'no-referrer')
+            ->setContentType('text/html', 'UTF-8')
+            ->setBody((string) $response->getBody());
+    }
+
+    /**
+     * The links to view and download an invoice's documents: its invoice, and its receipt once paid
+     * @param array $invoice From the API, with invoice_no, receipt_no and invoice_status
+     * @return string HTML
+     */
+    public static function documentLinks(array $invoice): string
+    {
+        $links = [];
+        foreach (['invoice' => 'Invoice', 'receipt' => 'Receipt'] as $kind => $label) {
+            $number = (string) ($invoice[$kind . '_no'] ?? '');
+            if ('' === $number || ('receipt' === $kind && 'D' !== ($invoice['invoice_status'] ?? ''))) {
+                continue;
+            }
+            $url     = base_url('admin/clients/documents/' . $kind . '/' . rawurlencode($number));
+            $links[] = '<span class="text-nowrap">'
+                . '<a href="' . esc($url, 'attr') . '" target="_blank" rel="noopener" title="View ' . esc($number, 'attr') . '"><i class="bi bi-file-earmark-text"></i> ' . $label . '</a>'
+                . ' <a href="' . esc($url . '?download=1', 'attr') . '" class="ms-1" title="Download ' . esc($number, 'attr') . '"><i class="bi bi-download"></i></a>'
+                . '</span>';
+        }
+        return [] === $links ? '<span class="text-muted">&mdash;</span>' : implode(' <span class="text-secondary">·</span> ', $links);
     }
 
     // ---- invoices ----

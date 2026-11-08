@@ -38,7 +38,11 @@ $routes->group('admin', ['filter' => 'auth'], static function($routes) {
 
     $routes->get('notifications', 'Admin::notifications');
     $routes->get('public-profile/(:any)', 'Admin::publicProfile/$1');
+    // the contact form's messages, by their id; see App\Controllers\Admin::inbox()
     $routes->get('inbox', 'Admin::inbox');
+    $routes->post('inbox', 'Admin::inboxList');
+    $routes->get('inbox/view/(:num)', 'Admin::inboxView/$1');
+    $routes->post('inbox/status', 'Admin::inboxStatus');
     // Client Controller
     $routes->get('client/contracts', 'Client::contracts');
     $routes->get('client/businesses', 'Client::businesses');
@@ -86,6 +90,9 @@ $routes->group('admin', ['filter' => ['auth', 'department:EXE,FIN']], static fun
     $routes->get('clients/subscriptions', 'ClientBilling::subscriptions');
     $routes->post('clients/subscriptions', 'ClientBilling::subscriptionsList');
     $routes->get('clients/subscriptions/view/(:segment)', 'ClientBilling::subscriptionView/$1');
+    $routes->post('clients/subscriptions/status', 'ClientBilling::setStatus');
+    // an invoice or receipt page as the business gets it, by its INV-/RCT- number; ?download=1 saves it
+    $routes->get('clients/documents/(invoice|receipt)/(:segment)', 'ClientBilling::document/$1/$2');
     $routes->get('clients/invoices', 'ClientBilling::invoices');
     $routes->post('clients/invoices', 'ClientBilling::invoicesList');
     $routes->get('clients/invoices/view/(:segment)', 'ClientBilling::invoiceView/$1');

@@ -988,17 +988,146 @@ class Admin extends BaseController
         return view('admin_public_profile', $data);
     }
 
+    // ---- inbox: the public contact form's messages, through LINK_INTERNAL_API v1/staff/inbox/* ----
+
+    /** contact_message.status */
+    public const MESSAGE_STATUSES = [
+        'N' => ['label' => 'New', 'class' => 'bg-primary'],
+        'R' => ['label' => 'Read', 'class' => 'bg-info text-dark'],
+        'D' => ['label' => 'Done', 'class' => 'bg-success'],
+        'S' => ['label' => 'Spam', 'class' => 'bg-secondary'],
+    ];
+
     /**
-     * Inbox
+     * The inbox: the contact form's messages, newest first; the new ones at first
      * @return string
      */
     public function inbox(): string
     {
-        $data = [
+        $config           = $this->inboxListConfig();
+        $config['values'] = ['status' => 'N'];
+        return view('generic_list', [
             'page_title' => 'Inbox',
             'slug'       => 'inbox',
-        ];
-        return view('generic_list', $data);
+            'listConfig' => $config,
+        ]);
     }
 
+    /**
+     * One page of messages: the DataTables request forwarded to LINK_INTERNAL_API v1/staff/inbox/messages, which
+     * always orders newest first and searches the sender's name and email address and the subject
+     * @return ResponseInterface
+     */
+    public function inboxList(): ResponseInterface
+    {
+        $config  = $this->inboxListConfig();
+        $params  = lb_request($this->request, $config);
+        $filters = [];
+        foreach ($params['filters'] as $item) {
+            $filters[$item['def']['name']] = (string) $item['value'];
+        }
+        [$code, $body] = $this->callApi('v1/staff/inbox/messages', [
+            'start'   => $params['start'],
+            'length'  => $params['length'],
+            'search'  => $params['search'],
+            'filters' => $filters,
+        ]);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            return $this->response->setJSON(lb_response($params['draw'], 0, 0, []) + ['error' => $body['message'] ?? 'Could not load the messages. Please try again.']);
+        }
+
+        $result = (array) ($body['data'] ?? []);
+        $rows   = array_map(static function (array $row): array {
+            $row['sender']  = '<div>' . esc((string) $row['name']) . '</div><div class="small text-secondary">' . esc((string) $row['email_address']) . '</div>';
+            $row['topic']   = '<div class="fw-semibold">' . esc((string) $row['subject']) . '</div><div class="small text-secondary">' . esc((string) ($row['excerpt'] ?? '')) . '</div>';
+            $row['handled'] = null === ($row['handled_by_name'] ?? null) ? '—' : (string) $row['handled_by_name'];
+            return $row;
+        }, (array) ($result['rows'] ?? []));
+
+        return $this->response->setJSON(lb_response(
+            $params['draw'],
+            (int) ($result['records_total'] ?? 0),
+            (int) ($result['records_filtered'] ?? 0),
+            lb_rows($rows, $config)
+        ));
+    }
+
+    /**
+     * One message; opening a new one marks it read (the API does)
+     * @param string $id contact_message.id
+     * @return string
+     */
+    public function inboxView(string $id): string
+    {
+        [$code, $body] = $this->callApi('v1/staff/inbox/message', ['id' => (int) $id]);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            throw $code === 404
+                ? PageNotFoundException::forPageNotFound($body['message'] ?? null)
+                : new RuntimeException($body['message'] ?? 'Could not load the message.');
+        }
+        $message = (array) ($body['data']['message'] ?? []);
+
+        return view('admin_inbox_message', [
+            'page_title'  => (string) ($message['subject'] ?? 'Message'),
+            'slug'        => 'inbox',
+            'breadcrumbs' => [base_url('admin/inbox') => 'Inbox'],
+            'message'     => $message,
+        ]);
+    }
+
+    /**
+     * Mark a message new, read, done or spam through LINK_INTERNAL_API v1/staff/inbox/message/status: { id, status }
+     * @return ResponseInterface
+     */
+    public function inboxStatus(): ResponseInterface
+    {
+        [$code, $body] = $this->callApi('v1/staff/inbox/message/status', [
+            'id'     => (int) $this->request->getPost('id'),
+            'status' => strtoupper(trim((string) $this->request->getPost('status'))),
+        ]);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            return $this->response->setStatusCode($code === 200 ? 422 : $code)->setJSON([
+                'success'   => false,
+                'message'   => $body['message'] ?? 'Could not update the message. Please try again.',
+                'csrf_hash' => csrf_hash(),
+            ]);
+        }
+        return $this->response->setJSON([
+            'success'   => true,
+            'message'   => $body['message'] ?? 'Message updated.',
+            'csrf_hash' => csrf_hash(),
+        ]);
+    }
+
+    /**
+     * Table Builder configuration of the inbox, shared by the page and its JSON endpoint
+     * @return array
+     */
+    private function inboxListConfig(): array
+    {
+        $column = static fn (string $data, string $title, array $extra = []): array
+            => $extra + ['data' => $data, 'db' => $data, 'title' => $title, 'orderable' => false, 'searchable' => false];
+        return [
+            'table_id'    => 'inboxTable',
+            'title'       => 'Contact Form Messages',
+            'subtitle'    => 'Newest first; the search looks in the sender\'s name and email address and the subject',
+            'id_field'    => 'id',
+            'urls'        => [
+                'data' => base_url('admin/inbox'),
+                'edit' => base_url('admin/inbox/view/{id}'),
+            ],
+            'columns'     => [
+                $column('created_at', 'Received', ['type' => 'datetime']),
+                $column('sender', 'From', ['type' => 'html', 'searchable' => true]),
+                $column('topic', 'Subject', ['type' => 'html', 'searchable' => true]),
+                $column('status', 'Status', ['type' => 'badge', 'badges' => self::MESSAGE_STATUSES]),
+                $column('handled', 'Handled By'),
+            ],
+            'filters'     => [
+                ['name' => 'status', 'type' => 'select', 'label' => 'Status', 'options' => array_map(static fn (array $b): string => $b['label'], self::MESSAGE_STATUSES)],
+            ],
+            'order'       => [],
+            'page_length' => 25,
+        ];
+    }
 }

@@ -48,7 +48,9 @@ if (! empty($i['paid_at'])) {
 if (! empty($i['voided_at'])) {
     $rows['Voided'] = B::time($i['voided_at']);
 }
-$rows['Issued'] = B::time($i['created_at'] ?? null);
+$rows['Issued']    = B::time($i['created_at'] ?? null);
+$rows['Documents'] = B::documentLinks($i)
+    . '<div class="small text-secondary">The same pages the business gets; open one to print it or save it as PDF</div>';
 ?>
 <?= $this->section('content') ?>
     <section class="section">
