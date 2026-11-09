@@ -189,7 +189,10 @@
             <li class="nav-item"><a class="nav-link <?= ('dashboard' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/dashboard') ?>"><span class="nav-icon"><i class="bi bi-speedometer2"></i></span><span class="nav-text">Dashboard</span></a></li>
             <!-- USERS -->
             <li class="nav-heading"><span>People</span></li>
-            <li class="nav-item"><a class="nav-link <?= ('accounts' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/accounts') ?>"><span class="nav-icon"><i class="bi bi-people"></i></span><span class="nav-text">User Accounts</span></a></li>
+            <?php if (inDepartment(EXECUTIVE_DEPARTMENT)) : ?>
+            <li class="nav-item"><a class="nav-link <?= ('accounts' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/accounts') ?>"><span class="nav-icon"><i class="bi bi-people"></i></span><span class="nav-text">Manage Accounts</span></a></li>
+            <?php endif; ?>
+            <li class="nav-item"><a class="nav-link <?= ('public-profiles' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/public-profiles') ?>"><span class="nav-icon"><i class="bi bi-people"></i></span><span class="nav-text">Staff’s Profiles</span></a></li>
             <!-- BUSINESS -->
             <li class="nav-heading"><span>Businesses</span></li>
             <li class="nav-item"><a class="nav-link <?= ('business-types' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/business-types') ?>"><span class="nav-icon"><i class="bi bi-ui-radios"></i></span><span class="nav-text">Business Types</span></a></li>

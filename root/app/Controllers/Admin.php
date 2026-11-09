@@ -123,7 +123,7 @@ class Admin extends BaseController
     public function accounts(): string
     {
         $data = [
-            'page_title' => 'Account',
+            'page_title' => 'Manage Accounts',
             'slug'       => 'accounts',
             'listConfig' => $this->accountsListConfig(),
         ];
