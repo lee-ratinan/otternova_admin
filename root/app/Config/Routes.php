@@ -8,6 +8,10 @@ $routes->post('login', 'Home::login');
 $routes->post('verify-otp', 'Home::verifyOtp');
 $routes->post('change-password', 'Home::changePassword');
 $routes->get('logout', 'Home::logout');
+$routes->get('forgot-password', 'Home::forgotPassword');
+$routes->post('forgot-password', 'Home::submitForgotPassword');
+$routes->get('reset-password', 'Home::resetPassword');
+$routes->post('reset-password', 'Home::submitResetPassword');
 
 $routes->group('admin', ['filter' => 'auth'], static function($routes) {
     // Dashboard

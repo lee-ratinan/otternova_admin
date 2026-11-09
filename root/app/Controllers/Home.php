@@ -14,6 +14,8 @@ class Home extends BaseController
     private const MAX_SESSION_SECONDS = 8 * 3600;
     // Quick check before the API applies its full password policy
     private const MIN_PASSWORD_LENGTH = 8;
+    // Shown when a reset link is missing, used up or expired and the API gives no message of its own
+    private const RESET_INVALID = 'This password reset link is invalid or has expired. Please request a new one.';
 
     /**
      * Show the login form, or go straight to the dashboard when already signed in.
@@ -154,6 +156,112 @@ class Home extends BaseController
     }
 
     /**
+     * GET forgot-password: the form asking for the email address to send the reset link to.
+     */
+    public function forgotPassword(): string|RedirectResponse
+    {
+        if (hasActiveSession()) {
+            return redirect()->to(base_url('admin/dashboard'));
+        }
+        return view('public_forgotPassword');
+    }
+
+    /**
+     * POST forgot-password: ask LINK_INTERNAL_API to email a reset link.
+     * The answer is the same whether or not the address has an account, so it does not tell anyone which do.
+     */
+    public function submitForgotPassword(): ResponseInterface
+    {
+        $email = trim((string) $this->request->getPost('email'));
+        if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return $this->fail('Please enter a valid email address.', 422, ['email' => 'Please enter a valid email address.']);
+        }
+
+        [$code, $body] = $this->callApi('v1/request-password-reset', [
+            'email_address' => $email,
+            'account_type'  => self::USER_TYPE,
+        ]);
+        // 429 and 503 are about the request, not the account, so they may be shown as they are
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            return $this->fail($body['message'] ?? 'Unable to send the reset link. Please try again.', $code === 200 ? 502 : $code);
+        }
+
+        return $this->response->setJSON([
+            'status'  => 'success',
+            'message' => 'If ' . $email . ' has an account, a link to reset its password has been sent to it.',
+        ]);
+    }
+
+    /**
+     * GET reset-password?token=: the link from the reset email. A valid token is kept server-side and the token is
+     * dropped from the address bar (so it does not leak through the history or the Referer header);
+     * GET reset-password then shows the new password form, or the error when there is no usable token.
+     */
+    public function resetPassword(): string|RedirectResponse
+    {
+        $session = session();
+        $token   = trim((string) $this->request->getGet('token'));
+        if ($token !== '') {
+            $session->remove('reset_token');
+            [$code, $body] = $this->callApi('v1/check-password-reset', ['token' => $token]);
+            if ($code === 200 && ($body['status'] ?? '') === 'success') {
+                $session->set('reset_token', $token);
+            } else {
+                $session->setFlashdata('reset_error', $body['message'] ?? self::RESET_INVALID);
+            }
+            return redirect()->to(base_url('reset-password'));
+        }
+
+        return view('public_resetPassword', [
+            'valid' => ! empty($session->get('reset_token')),
+            'error' => $session->getFlashdata('reset_error') ?? self::RESET_INVALID,
+        ]);
+    }
+
+    /**
+     * POST reset-password: set the new password with the token kept by resetPassword(), then send the user to sign in.
+     * Responds with {status: 'success', redirect} or {status: 'error', message, errors}; 410 when the link is no longer usable.
+     */
+    public function submitResetPassword(): ResponseInterface
+    {
+        $session = session();
+        $token   = $session->get('reset_token');
+        if (empty($token)) {
+            return $this->fail(self::RESET_INVALID, 410);
+        }
+
+        $password = (string) $this->request->getPost('new_password');
+        $confirm  = (string) $this->request->getPost('confirm_password');
+        if (mb_strlen($password) < self::MIN_PASSWORD_LENGTH) {
+            $message = 'The new password must be at least ' . self::MIN_PASSWORD_LENGTH . ' characters.';
+            return $this->fail($message, 422, ['new_password' => $message]);
+        }
+        if ($password !== $confirm) {
+            $message = 'The new passwords do not match.';
+            return $this->fail($message, 422, ['confirm_password' => $message]);
+        }
+
+        [$code, $body] = $this->callApi('v1/reset-password', [
+            'token'        => $token,
+            'new_password' => $password,
+        ]);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            // 410: the link is used up or expired, so a new one is needed
+            if ($code === 410) {
+                $session->remove('reset_token');
+            }
+            return $this->fail($body['message'] ?? 'Unable to reset your password. Please try again.', $code === 200 ? 422 : $code, (array) ($body['errors'] ?? []));
+        }
+
+        $session->remove('reset_token');
+        $session->setFlashdata('auth_alert', ['success', $body['message'] ?? 'Your password has been reset. Please sign in with the new password.']);
+        return $this->response->setJSON([
+            'status'   => 'success',
+            'redirect' => base_url(),
+        ]);
+    }
+
+    /**
      * Credentials (and OTP) accepted: sign in, or hold the user at the password change when the password has expired.
      * No session is created until the password is changed.
      */
@@ -228,12 +336,19 @@ class Home extends BaseController
         }
     }
 
-    private function fail(string $message, int $code): ResponseInterface
+    /**
+     * @param array $errors Field => message, for the form to highlight; left out when empty
+     */
+    private function fail(string $message, int $code, array $errors = []): ResponseInterface
     {
         $code = ($code >= 400 && $code < 600) ? $code : 500;
-        return $this->response->setStatusCode($code)->setJSON([
+        $body = [
             'status'  => 'error',
             'message' => $message,
-        ]);
+        ];
+        if ($errors !== []) {
+            $body['errors'] = $errors;
+        }
+        return $this->response->setStatusCode($code)->setJSON($body);
     }
 }
