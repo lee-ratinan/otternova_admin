@@ -730,19 +730,6 @@ class Admin extends BaseController
     }
 
     /**
-     * Notification page
-     * @return string
-     */
-    public function notifications(): string
-    {
-        $data = [
-            'page_title' => 'Notifications',
-            'slug'       => 'notifications',
-        ];
-        return view('admin_notifications', $data);
-    }
-
-    /**
      * The signed-in staff member's own profile: the account form of their own uid, opened in view mode
      * (the Edit button switches the same page to edit mode). Employment, legal and admin fields stay disabled.
      * @return string

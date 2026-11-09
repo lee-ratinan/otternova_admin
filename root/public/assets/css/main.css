@@ -2079,6 +2079,11 @@ button {
   background: var(--warning-color-light);
 }
 
+.notification-icon.danger {
+  color: var(--danger-color);
+  background: var(--danger-color-light);
+}
+
 .notification-icon.info {
   color: var(--info-color);
   background: var(--info-color-light);

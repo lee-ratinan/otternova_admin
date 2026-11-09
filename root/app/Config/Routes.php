@@ -40,7 +40,14 @@ $routes->group('admin', ['filter' => 'auth'], static function($routes) {
 
 
 
-    $routes->get('notifications', 'Admin::notifications');
+    // the signed-in staff member's notifications, by public_id; see App\Controllers\Notifications
+    $routes->get('notifications', 'Notifications::index');
+    $routes->post('notifications/latest', 'Notifications::latest');
+    $routes->post('notifications/list', 'Notifications::list');
+    $routes->get('notifications/open/(:segment)', 'Notifications::open/$1');
+    $routes->post('notifications/read-all', 'Notifications::readAll');
+    $routes->post('notifications/delete', 'Notifications::delete');
+    $routes->post('notifications/delete-read', 'Notifications::deleteRead');
     $routes->get('public-profile/(:any)', 'Admin::publicProfile/$1');
     // the contact form's messages, by their id; see App\Controllers\Admin::inbox()
     $routes->get('inbox', 'Admin::inbox');

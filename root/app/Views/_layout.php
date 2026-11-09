@@ -59,58 +59,43 @@
                     <i class="bi bi-moon theme-icon-dark"></i>
                     <i class="bi bi-brightness-high theme-icon-light"></i>
                 </button>
-                <!-- NOTIFICATIONS -->
-                <div class="header-action-wrap dropdown notification-dropdown">
+                <!-- NOTIFICATIONS: filled by assets/js/notification-center.js; see App\Controllers\Notifications -->
+                <?php
+                $notificationCenter = [
+                    'layout' => 'admin',
+                    'poll'   => 60,
+                    'urls'   => [
+                        'latest'     => base_url('admin/notifications/latest'),
+                        'list'       => base_url('admin/notifications/list'),
+                        'open'       => base_url('admin/notifications/open'),
+                        'readAll'    => base_url('admin/notifications/read-all'),
+                        'delete'     => base_url('admin/notifications/delete'),
+                        'deleteRead' => base_url('admin/notifications/delete-read'),
+                    ],
+                    'text'   => [
+                        'unread'        => '{0} unread',
+                        'allCaughtUp'   => 'All caught up',
+                        'empty'         => 'No notifications',
+                        'loadFailed'    => 'Could not load the notifications. Please try again.',
+                        'delete'        => 'Delete',
+                        'deleteConfirm' => 'Delete this notification?',
+                    ],
+                ];
+                ?>
+                <div class="header-action-wrap dropdown notification-dropdown" data-notification-center="<?= esc(json_encode($notificationCenter, JSON_UNESCAPED_SLASHES), 'attr') ?>">
                     <button class="header-action dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Notifications">
                         <i class="bi bi-bell"></i>
-                        <span class="header-badge">4</span>
+                        <span class="header-badge d-none" data-notification-badge>0</span>
                     </button>
                     <div class="dropdown-menu dropdown-menu-end notification-menu">
                         <div class="notification-header">
                             <div>
                                 <h6>Notifications</h6>
-                                <span class="notification-count">4 unread</span>
+                                <span class="notification-count" data-notification-count>&nbsp;</span>
                             </div>
                             <a href="#" class="notification-mark-read" data-notification-action="mark-all-read">Mark all read</a>
                         </div>
-                        <div class="notification-list">
-                            <div class="notification-item unread">
-                                <span class="notification-dot"></span>
-                                <div class="notification-icon info"><i class="bi bi-rocket-takeoff"></i></div>
-                                <div class="notification-content">
-                                    <div class="notification-title">Deploy Ready</div>
-                                    <div class="notification-text">Sprint 24 release has passed QA checks.</div>
-                                    <span class="notification-time">5m ago</span>
-                                </div>
-                            </div>
-                            <div class="notification-item unread">
-                                <span class="notification-dot"></span>
-                                <img src="<?= base_url('assets/img/avatars/avatar-2.webp') ?>" alt="" class="notification-avatar">
-                                <div class="notification-content">
-                                    <div class="notification-title">Mia sent feedback</div>
-                                    <div class="notification-text">Please review the updated dashboard card hierarchy.</div>
-                                    <span class="notification-time">21m ago</span>
-                                </div>
-                            </div>
-                            <div class="notification-item unread">
-                                <span class="notification-dot"></span>
-                                <div class="notification-icon warning"><i class="bi bi-exclamation-triangle"></i></div>
-                                <div class="notification-content">
-                                    <div class="notification-title">Storage threshold</div>
-                                    <div class="notification-text">Media bucket reached 81% utilization.</div>
-                                    <span class="notification-time">58m ago</span>
-                                </div>
-                            </div>
-                            <div class="notification-item unread">
-                                <span class="notification-dot"></span>
-                                <div class="notification-icon success"><i class="bi bi-check2-circle"></i></div>
-                                <div class="notification-content">
-                                    <div class="notification-title">Payment received</div>
-                                    <div class="notification-text">Invoice #INV-3921 was settled successfully.</div>
-                                    <span class="notification-time">2h ago</span>
-                                </div>
-                            </div>
-                        </div>
+                        <div class="notification-list" data-notification-list></div>
                         <div class="notification-footer">
                             <a href="<?= base_url('admin/notifications') ?>">Open notification center <i class="bi bi-arrow-right"></i></a>
                         </div>
@@ -326,5 +311,6 @@
 <script src="<?= base_url('assets/js/theme.js') ?>"></script>
 <script src="<?= base_url('assets/js/main.js') ?>"></script>
 <script src="<?= base_url('assets/js/apps-sidebar-toggle.js') ?>"></script>
+<script src="<?= base_url('assets/js/notification-center.js') ?>"></script>
 </body>
 </html>
