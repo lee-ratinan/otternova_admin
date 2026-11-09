@@ -34284,3 +34284,16 @@ textarea.form-control {
 /* RIBBON */
 .corner-ribbon {position: fixed;bottom: 25px;right: -45px;width: 150px;z-index: 100001;transform: rotate(-45deg);text-align: center;background: #e63946;color: #ffffff;font-size: 12px;font-weight: 700;letter-spacing: 1px;text-transform: uppercase;padding: 8px 0;box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);pointer-events: none;}
 .corner-ribbon span {display: block;}
+/* STAFF PROFILES GALLERY */
+.page-staff .staff-search {max-width: 220px;}
+.page-staff .staff-gallery {display: grid;grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));gap: 20px 12px;}
+.page-staff .staff-tile {display: flex;flex-direction: column;align-items: center;gap: 8px;padding: 12px 6px;border-radius: var(--radius-lg, 12px);color: inherit;text-decoration: none;transition: background-color .15s ease;}
+.page-staff .staff-tile:hover, .page-staff .staff-tile:focus-visible {background: color-mix(in srgb, var(--accent-color), transparent 92%);}
+.page-staff .staff-tile-avatar {width: 112px;height: 112px;border-radius: var(--radius-full, 50%);object-fit: cover;border: 3px solid var(--card-bg);box-shadow: var(--shadow-md);transition: transform .15s ease;}
+.page-staff .staff-tile:hover .staff-tile-avatar {transform: scale(1.04);}
+.page-staff .staff-tile-name {font-weight: 600;font-size: .9rem;text-align: center;line-height: 1.25;overflow-wrap: anywhere;}
+.page-staff .staff-tile.d-none {display: none !important;}
+@media (max-width: 575.98px) {
+  .page-staff .staff-gallery {grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));}
+  .page-staff .staff-tile-avatar {width: 84px;height: 84px;}
+}

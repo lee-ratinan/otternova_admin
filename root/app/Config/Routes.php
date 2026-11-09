@@ -48,7 +48,9 @@ $routes->group('admin', ['filter' => 'auth'], static function($routes) {
     $routes->post('notifications/read-all', 'Notifications::readAll');
     $routes->post('notifications/delete', 'Notifications::delete');
     $routes->post('notifications/delete-read', 'Notifications::deleteRead');
-    $routes->get('public-profile/(:any)', 'Admin::publicProfile/$1');
+    // every staff member's public profile, by uid; see App\Controllers\Admin::publicProfiles()
+    $routes->get('public-profiles', 'Admin::publicProfiles');
+    $routes->get('public-profile/(:segment)', 'Admin::publicProfile/$1');
     // the contact form's messages, by their id; see App\Controllers\Admin::inbox()
     $routes->get('inbox', 'Admin::inbox');
     $routes->post('inbox', 'Admin::inboxList');

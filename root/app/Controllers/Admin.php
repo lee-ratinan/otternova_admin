@@ -961,18 +961,130 @@ class Admin extends BaseController
         ]);
     }
 
+    // ---- staff profiles: what every staff member may see of the others ----
+
     /**
-     * Public Profile page
-     * @param string $otternautSlug
+     * The staff profiles gallery: every active staff member's picture with their name underneath,
+     * each linking to their public profile
      * @return string
      */
-    public function publicProfile(string $otternautSlug): string
+    public function publicProfiles(): string
     {
-        $data = [
-            'page_title' => 'Public Profile',
-            'slug'       => 'public-profile',
-        ];
-        return view('admin_public_profile', $data);
+        $departments = $this->departmentNames();
+        $staff       = [];
+        foreach ($this->staffLookup() as $row) {
+            if (($row['account_status'] ?? '') !== AuthMasterModel::STATUS_ACTIVE) {
+                continue;
+            }
+            $staff[] = [
+                'uid'        => (string) $row['uid'],
+                'full_name'  => (string) $row['full_name'],
+                'job_title'  => (string) ($row['job_title'] ?? ''),
+                'department' => $departments[$row['department_id'] ?? 0]['name'] ?? '',
+                'avatar'     => avatarUrl($row['avatar_path'] ?? null),
+            ];
+        }
+
+        return view('admin_public_profiles', [
+            'page_title' => 'Staff’s Profiles',
+            'slug'       => 'public-profiles',
+            'staff'      => $staff,
+        ]);
+    }
+
+    /**
+     * One active staff member's public profile: only work-facing fields (job, department, line manager, work contact,
+     * status message and bio). Personal, legal, identity, emergency and HR fields never reach the page.
+     * @param string $uid auth_master.uid
+     * @return string
+     */
+    public function publicProfile(string $uid): string
+    {
+        [$code, $body] = $this->callApi('v1/staff/account', ['uid' => $uid]);
+        if ($code === 404 || $code === 400) {
+            throw PageNotFoundException::forPageNotFound();
+        }
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            throw new RuntimeException($body['message'] ?? 'Could not load the profile.');
+        }
+        $account = (array) ($body['data']['account'] ?? []);
+        $profile = (array) ($body['data']['profile'] ?? []);
+        // client accounts and staff who are no longer active have no public profile
+        if (($account['account_type'] ?? '') !== AuthMasterModel::TYPE_STAFF
+            || ($account['account_status'] ?? '') !== AuthMasterModel::STATUS_ACTIVE) {
+            throw PageNotFoundException::forPageNotFound();
+        }
+
+        // the lookup carries the initials avatar when there is no picture, and the line manager's name and uid
+        $lookup = $this->staffLookup();
+        $self   = null;
+        $byId   = [];
+        foreach ($lookup as $row) {
+            $byId[$row['id']] = $row;
+            if ($row['uid'] === $uid) {
+                $self = $row;
+            }
+        }
+        $manager = $byId[(int) ($profile['manager_staff_id'] ?? 0)] ?? null;
+        if (null !== $manager && ($manager['account_status'] ?? '') !== AuthMasterModel::STATUS_ACTIVE) {
+            $manager['uid'] = null; // shown by name, but their profile is not public any more
+        }
+        $department = $this->departmentNames()[(int) ($profile['department_id'] ?? 0)] ?? null;
+        $countries  = listCountries();
+        $country    = (string) ($profile['work_country_code'] ?? '');
+        $type       = (string) ($profile['employment_type'] ?? '');
+
+        return view('admin_public_profile', [
+            'page_title' => (string) $account['full_name'],
+            'slug'       => 'public-profiles',
+            'person'     => [
+                'uid'             => $uid,
+                'own'             => $uid === (string) (session('user')['uid'] ?? ''),
+                'full_name'       => (string) $account['full_name'],
+                'preferred_name'  => (string) ($profile['preferred_name'] ?? ''),
+                'avatar'          => avatarUrl($self['avatar_path'] ?? ($account['avatar_path'] ?? null)),
+                'job_title'       => (string) ($profile['job_title'] ?? ''),
+                'department'      => $department['name'] ?? '',
+                'employment_type' => '' === $type ? '' : lang('StaffMaster.enum.employment_type.' . $type),
+                'start_date'      => (string) ($profile['employment_start_date'] ?? ''),
+                'work_country'    => '' === $country ? '' : ($countries[$country] ?? $country),
+                'work_email'      => (string) ($profile['work_email_address'] ?? ''),
+                'work_telephone'  => (string) ($profile['work_telephone_number'] ?? ''),
+                'status_message'  => (string) ($profile['status_message'] ?? ''),
+                'bio'             => (string) ($profile['bio'] ?? ''),
+                'manager'         => null === $manager ? null : ['name' => (string) $manager['full_name'], 'uid' => $manager['uid']],
+            ],
+        ]);
+    }
+
+    /**
+     * LINK_INTERNAL_API v1/staff/staff-members: every staff member, by name, with avatar_path (picture or initials avatar)
+     * @return list<array>
+     */
+    private function staffLookup(): array
+    {
+        [$code, $body] = $this->callApi('v1/staff/staff-members', []);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            throw new RuntimeException($body['message'] ?? 'Could not load the staff members.');
+        }
+        return (array) ($body['data']['rows'] ?? []);
+    }
+
+    /**
+     * LINK_INTERNAL_API v1/staff/departments, keyed by otternova_department.id
+     * @return array<int, array{name: string, code: string}>
+     */
+    private function departmentNames(): array
+    {
+        [$code, $body] = $this->callApi('v1/staff/departments', []);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            throw new RuntimeException($body['message'] ?? 'Could not load the departments.');
+        }
+        $departments = [];
+        foreach ((array) ($body['data']['rows'] ?? []) as $row) {
+            $departments[(int) $row['id']] = ['name' => (string) $row['department_name'], 'code' => (string) $row['department_code']];
+        }
+        return $departments;
     }
 
     // ---- inbox: the public contact form's messages, through LINK_INTERNAL_API v1/staff/inbox/* ----
