@@ -215,6 +215,10 @@
             <!-- INBOX -->
             <li class="nav-heading"><span>Inbox</span></li>
             <li class="nav-item"><a class="nav-link <?= ('inbox' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/inbox') ?>"><span class="nav-icon"><i class="bi bi-inbox"></i></span><span class="nav-text">Inbox</span></a></li>
+            <!-- TRAFFIC -->
+            <li class="nav-heading"><span>Traffic</span></li>
+            <li class="nav-item"><a class="nav-link <?= ('traffic-www' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/traffic/www') ?>"><span class="nav-icon"><i class="bi bi-globe2"></i></span><span class="nav-text">Website</span></a></li>
+            <li class="nav-item"><a class="nav-link <?= ('traffic-mart' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/traffic/mart') ?>"><span class="nav-icon"><i class="bi bi-shop"></i></span><span class="nav-text">Marketplace</span></a></li>
             <!-- FINANCE -->
             <?php if (inDepartment(LEDGER_DEPARTMENTS)) : // the Executive Office and Finance only; see App\Filters\DepartmentFilter ?>
             <li class="nav-heading"><span>Finance</span></li>
