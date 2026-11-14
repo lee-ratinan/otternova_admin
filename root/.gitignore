@@ -127,3 +127,5 @@ _modules/*
 
 # CSS/JS Libraries
 /public/assets/vendor/*
+
+tests/
