@@ -1,32 +1,23 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-US">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $this->renderSection('title') ?> - <?= SITE_TITLE ?></title>
     <meta name="description" content="<?= META_DESCRIPTION ?>">
     <meta name="keywords" content="<?= META_KEYWORDS ?>">
+    <link href="<?= assets_url() ?>" rel="preconnect">
     <!-- Favicons -->
-    <link href="<?= base_url('assets/img/logo.webp') ?>" rel="icon">
-    <link href="<?= base_url('assets/img/logo.webp') ?>" rel="apple-touch-icon">
-    <!-- Google Fonts - Manrope + Sora + JetBrains Mono -->
+    <link href="<?= assets_url('img/logo.webp') ?>" rel="icon">
+    <link href="<?= assets_url('img/logo.webp') ?>" rel="apple-touch-icon">
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@200..700&family=Raleway:ital,wght@0,100..900;1,100..900&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
     <!-- Vendor CSS Files -->
-    <link href="<?= base_url('assets/vendor/bootstrap/css/bootstrap.min.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/vendor/bootstrap-icons/bootstrap-icons.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/vendor/remixicon/remixicon.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/vendor/fontawesome-free/css/all.min.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/vendor/phosphor-icons/phosphor-icons.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/vendor/lucide-icons/lucide.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/vendor/simple-datatables/style.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/vendor/quill/quill.snow.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/vendor/quill/quill.bubble.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/vendor/choices.js/choices.min.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/vendor/flatpickr/flatpickr.min.css') ?>" rel="stylesheet">
-    <!-- Template Main CSS File -->
-    <link href="<?= base_url('assets/css/main.css') ?>" rel="stylesheet">
+    <link href="<?= assets_url('vendor/bootstrap5.3.8/css/bootstrap.min.css') ?>" rel="stylesheet">
+    <link href="<?= assets_url('vendor/bootstrap-icons1.13.1/bootstrap-icons.css') ?>" rel="stylesheet">
+    <link href="<?= assets_url('themes/admin/css/main.css') ?>" rel="stylesheet">
     <!-- =======================================================
       * Template Name: FlexAdmin - Bootstrap Admin Template
       * Template URL: https://bootstrapmade.com/flex-admin-bootstrap-template/
@@ -39,7 +30,7 @@
 <div class="fauth fauth-split">
     <aside class="fauth-visual">
         <a href="<?= base_url() ?>" class="fauth-logo">
-            <img src="<?= base_url('assets/img/logo.webp') ?>" alt="<?= SITE_TITLE ?>" style="height:50px;">
+            <img src="<?= assets_url('img/logo.webp') ?>" alt="<?= SITE_TITLE ?>" style="height:50px;">
             <?= SITE_TITLE ?>
         </a>
         <h2 class="fauth-visual-title">OtterNova Command Center</h2>
@@ -52,7 +43,7 @@
     </aside>
     <main class="fauth-main">
         <div class="fauth-main-inner">
-<?= $this->renderSection('content') ?>
+            <?= $this->renderSection('content') ?>
             <footer class="footer-centered">
                 <div class="footer-copyright">&copy; 2025-<?= date('Y') ?> <b>OtterNova</b>. All Rights Reserved.</div>
             </footer>
@@ -68,21 +59,10 @@
     </div>
 <?php endif; ?>
 <!-- Vendor JS Files -->
-<script src="<?= base_url('assets/vendor/bootstrap/js/bootstrap.bundle.min.js') ?>"></script>
-<script src="<?= base_url('assets/vendor/apexcharts/apexcharts.min.js') ?>"></script>
-<script src="<?= base_url('assets/vendor/chart.js/chart.umd.js') ?>"></script>
-<script src="<?= base_url('assets/vendor/echarts/echarts.min.js') ?>"></script>
-<script src="<?= base_url('assets/vendor/simple-datatables/simple-datatables.js') ?>"></script>
-<script src="<?= base_url('assets/vendor/quill/quill.js') ?>"></script>
-<script src="<?= base_url('assets/vendor/tinymce/tinymce.min.js') ?>"></script>
-<script src="<?= base_url('assets/vendor/choices.js/choices.min.js') ?>"></script>
-<script src="<?= base_url('assets/vendor/flatpickr/flatpickr.min.js') ?>"></script>
-<script src="<?= base_url('assets/vendor/php-email-form/validate.js') ?>"></script>
+<script src="<?= assets_url('vendor/bootstrap5.3.8/js/bootstrap.bundle.min.js') ?>"></script>
 <!-- Template Main JS Files -->
-<script src="<?= base_url('assets/js/theme.js') ?>"></script>
-<script src="<?= base_url('assets/js/main.js') ?>"></script>
-<!-- App Sidebar Toggle (for app pages with sidebars) -->
-<script src="<?= base_url('assets/js/apps-sidebar-toggle.js') ?>"></script>
+<script src="<?= assets_url('themes/admin/js/theme.js') ?>"></script>
+<script src="<?= assets_url('themes/admin/js/main.js') ?>"></script>
 <?= $this->renderSection('script') ?>
 </body>
 </html>

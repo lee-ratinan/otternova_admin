@@ -1,34 +1,28 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-US">
 <head>
-    <?php
-    $page_title = $page_title ?? '[UNTITLED PAGE TITLE]';
-    ?>
+    <?php $page_title = $page_title ?? '[UNTITLED PAGE TITLE]'; ?>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $page_title . ' | ' . SITE_TITLE ?></title>
     <meta name="description" content="<?= META_DESCRIPTION ?>">
     <meta name="keywords" content="<?= META_KEYWORDS ?>">
+    <link href="<?= assets_url() ?>" rel="preconnect">
     <!-- Favicons -->
-    <link href="<?= base_url('assets/img/logo.webp') ?>" rel="icon">
-    <link href="<?= base_url('assets/img/logo.webp') ?>" rel="apple-touch-icon">
-    <!-- Google Fonts - Manrope + Sora + JetBrains Mono -->
+    <link href="<?= assets_url('img/logo.webp') ?>" rel="icon">
+    <link href="<?= assets_url('img/logo.webp') ?>" rel="apple-touch-icon">
+    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@200..700&family=Raleway:ital,wght@0,100..900;1,100..900&family=Ubuntu+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
     <!-- Vendor CSS Files -->
-    <link href="<?= base_url('assets/vendor/bootstrap/css/bootstrap.min.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/vendor/bootstrap-icons/bootstrap-icons.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/vendor/fontawesome-free/css/all.min.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/vendor/quill/quill.snow.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/vendor/quill/quill.bubble.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/vendor/choices.js/choices.min.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/vendor/flatpickr/flatpickr.min.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/vendor/toastr/toastr.min.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/vendor/datatables/datatables.min.css') ?>" rel="stylesheet">
-    <link href="<?= base_url('assets/vendor/flag-icons/css/flag-icons.min.css') ?>" rel="stylesheet">
+    <link href="<?= assets_url('vendor/bootstrap5.3.8/css/bootstrap.min.css') ?>" rel="stylesheet">
+    <link href="<?= assets_url('vendor/bootstrap-icons1.13.1/bootstrap-icons.css') ?>" rel="stylesheet">
+    <link href="<?= assets_url('vendor/toastr/toastr.min.css') ?>" rel="stylesheet">
+    <link href="<?= assets_url('vendor/datatables3.1.4/datatables.min.css') ?>" rel="stylesheet">
+    <link href="<?= assets_url('vendor/flag-icons/css/flag-icons.min.css') ?>" rel="stylesheet">
     <!-- Template Main CSS File -->
-    <link href="<?= base_url('assets/css/main.css') ?>" rel="stylesheet">
+    <link href="<?= assets_url('themes/admin/css/main.css') ?>" rel="stylesheet">
     <!-- =======================================================
       * Template Name: FlexAdmin - Bootstrap Admin Template
       * Template URL: https://bootstrapmade.com/flex-admin-bootstrap-template/
@@ -38,11 +32,10 @@
       ======================================================== -->
 </head>
 <body>
-<!-- Header -->
 <header class="header">
     <div class="header-left">
         <a href="<?= base_url('admin/dashboard') ?>" class="header-logo">
-            <img src="<?= base_url('assets/img/logo.webp') ?>" alt="<?= SITE_TITLE ?>">
+            <img src="<?= assets_url('img/logo.webp') ?>" alt="<?= SITE_TITLE ?>">
             <span><?= SITE_TITLE ?></span>
         </a>
     </div>
@@ -59,7 +52,7 @@
                     <i class="bi bi-moon theme-icon-dark"></i>
                     <i class="bi bi-brightness-high theme-icon-light"></i>
                 </button>
-                <!-- NOTIFICATIONS: filled by assets/js/notification-center.js; see App\Controllers\Notifications -->
+                <!-- NOTIFICATIONS: filled by assets > admin/js/notification-center.js; see App\Controllers\Notifications -->
                 <?php
                 $notificationCenter = [
                     'layout' => 'admin',
@@ -302,22 +295,19 @@
     </div>
 <?php endif; ?>
 <!-- JS Files -->
-<script src="<?= base_url('assets/vendor/jquery/jquery-4.0.0.min.js') ?>"></script>
-<script src="<?= base_url('assets/vendor/bootstrap/js/bootstrap.bundle.min.js') ?>"></script>
-<script src="<?= base_url('assets/vendor/apexcharts/apexcharts.min.js') ?>"></script>
-<script src="<?= base_url('assets/vendor/datatables/datatables.min.js') ?>"></script>
-<script src="<?= base_url('assets/vendor/chart.js/chart.umd.js') ?>"></script>
-<script src="<?= base_url('assets/vendor/echarts/echarts.min.js') ?>"></script>
-<script src="<?= base_url('assets/vendor/quill/quill.js') ?>"></script>
-<script src="<?= base_url('assets/vendor/tinymce/tinymce.min.js') ?>"></script>
-<script src="<?= base_url('assets/vendor/choices.js/choices.min.js') ?>"></script>
-<script src="<?= base_url('assets/vendor/flatpickr/flatpickr.min.js') ?>"></script>
-<script src="<?= base_url('assets/vendor/php-email-form/validate.js') ?>"></script>
-<script src="<?= base_url('assets/vendor/toastr/toastr.min.js') ?>"></script>
-<script src="<?= base_url('assets/vendor/sweetalert/sweetalert2.min.js') ?>"></script>
-<script src="<?= base_url('assets/js/theme.js') ?>"></script>
-<script src="<?= base_url('assets/js/main.js') ?>"></script>
-<script src="<?= base_url('assets/js/apps-sidebar-toggle.js') ?>"></script>
-<script src="<?= base_url('assets/js/notification-center.js') ?>"></script>
+<script src="<?= assets_url('vendor/jquery4.0.0/jquery-4.0.0.min.js') ?>"></script>
+<script src="<?= assets_url('vendor/bootstrap5.3.8/js/bootstrap.bundle.min.js') ?>"></script>
+<script src="<?= assets_url('vendor/apexcharts/apexcharts.min.js') ?>"></script>
+<script src="<?= assets_url('vendor/datatables3.1.4/datatables.min.js') ?>"></script>
+<script src="<?= assets_url('vendor/chart.js/chart.umd.js') ?>"></script>
+<script src="<?= assets_url('vendor/echarts/echarts.min.js') ?>"></script>
+<script src="<?= assets_url('vendor/tinymce/tinymce.min.js') ?>"></script>
+<script src="<?= assets_url('vendor/php-email-form/validate.js') ?>"></script>
+<script src="<?= assets_url('vendor/toastr/toastr.min.js') ?>"></script>
+<script src="<?= assets_url('vendor/sweetalert/sweetalert2.min.js') ?>"></script>
+<script src="<?= assets_url('themes/admin/js/theme.js') ?>"></script>
+<script src="<?= assets_url('themes/admin/js/main.js') ?>"></script>
+<script src="<?= assets_url('themes/admin/js/apps-sidebar-toggle.js') ?>"></script>
+<script src="<?= assets_url('themes/admin/js/notification-center.js') ?>"></script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 <?php
 /**
  * The website's or the marketplace's traffic; see App\Controllers\Traffic. Every card is filled by
- * assets/js/traffic.js from admin/traffic/data/*, so the page shows at once and each card loads (or fails) apart.
+ * assets > admin/js/traffic.js from admin/traffic/data/*, so the page shows at once and each card loads (or fails) apart.
  * @var string $site     www or mart
  * @var string $from     YYYY-MM-DD or ''
  * @var string $to       YYYY-MM-DD or ''
@@ -11,7 +11,7 @@ $isMart = 'mart' === $site;
 ?>
 <?php $this->extend('_layout'); ?>
 <?= $this->section('content') ?>
-<link href="<?= base_url('assets/css/traffic.css') . '?v=' . @filemtime(FCPATH . 'assets/css/traffic.css') ?>" rel="stylesheet">
+<link href="<?= assets_url('themes/admin/css/traffic.css') . '?v=' . @filemtime(FCPATH . 'assets/css/traffic.css') ?>" rel="stylesheet">
 <div class="page-dashboard page-traffic" id="traffic"
      data-site="<?= esc($site, 'attr') ?>"
      data-from="<?= esc($from, 'attr') ?>"
@@ -28,7 +28,7 @@ $isMart = 'mart' === $site;
         <div class="tr-filters">
             <?php if ($isMart) : ?>
                 <div class="tr-business">
-                    <select id="tr-business" aria-label="Business">
+                    <select id="tr-business" class="form-control" aria-label="Business">
                         <option value="">All businesses</option>
                     </select>
                 </div>
@@ -182,5 +182,5 @@ $isMart = 'mart' === $site;
         </div>
     </div>
 </div>
-<script src="<?= base_url('assets/js/traffic.js') . '?v=' . @filemtime(FCPATH . 'assets/js/traffic.js') ?>" defer></script>
+<script src="<?= assets_url('themes/admin/js/traffic.js') . '?v=' . @filemtime(FCPATH . 'assets/js/traffic.js') ?>" defer></script>
 <?= $this->endSection() ?>

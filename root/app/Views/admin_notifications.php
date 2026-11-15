@@ -1,7 +1,7 @@
 <?php
 /**
  * The notification centre: every notification of the signed-in staff member, newest first; see
- * App\Controllers\Notifications. Filled by assets/js/notification-center.js, which the layout loads.
+ * App\Controllers\Notifications. Filled by assets > admin/js/notification-center.js, which the layout loads.
  */
 $this->extend('_layout');
 ?>
