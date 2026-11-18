@@ -86,6 +86,10 @@ define('META_DESCRIPTION', 'Admin portal for OtterNova staff');
 define('META_KEYWORDS', 'admin portal, backoffice, OtterNova');
 define('LOCALE', 'en-US');
 define('EXECUTIVE_DEPARTMENT', ['EXE']);
+// ... whose dashboard is the Finance one (the API lets EXE and FIN read it)
+define('FINANCE_DEPARTMENT', ['FIN']);
+// ... whose dashboard is the Engineering one (the API lets EXE and ENG read it)
+define('ENGINEERING_DEPARTMENT', ['ENG']);
 // otternova_department.department_code values that may use the ledger (the API checks the same list)
 define('LEDGER_DEPARTMENTS', ['EXE', 'FIN']);
 // ... and that may manage the plans, prices, payment methods and discounts (the API checks the same list)

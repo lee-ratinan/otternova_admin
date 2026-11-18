@@ -48,6 +48,23 @@ if (!function_exists('formatCurrency')) {
     }
 }
 
+if (!function_exists('formatMoneyHtml')) {
+    /**
+     * An amount from the API for a page: formatCurrency() for the currencies it knows, otherwise the number with
+     * 2 decimals and the currency code. Safe to print: formatCurrency() gives digits and its own fixed symbol only,
+     * and esc() would turn a symbol like บ into an entity.
+     * @param string|float $amount
+     * @param string $currencyCode
+     * @return string
+     */
+    function formatMoneyHtml(string|float $amount, string $currencyCode): string
+    {
+        $known = ['IDR', 'MYR', 'PHP', 'SGD', 'VND', 'THB', 'TWD', 'JPY', 'KRW', 'USD'];
+        return in_array(strtoupper($currencyCode), $known, true) ? formatCurrency((float) $amount, $currencyCode)
+            : esc(number_format((float) $amount, 2) . ' ' . $currencyCode);
+    }
+}
+
 if (!function_exists('formatPhoneNumberStandard')) {
     /**
      * Format phone number to the E.164 standard, i.e. 0812345678 with TH -> +66812345678

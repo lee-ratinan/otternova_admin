@@ -108,7 +108,9 @@ class Admin extends BaseController
     }
 
     /**
-     * Dashboard
+     * Dashboard: each department its own. The Executive Office gets the business's figures from LINK_INTERNAL_API
+     * v1/staff/dashboard/executive, Finance its work queue and figures from v1/staff/dashboard/finance, Engineering
+     * the platform's health from v1/staff/dashboard/engineering, everyone else the overview
      * @return string
      */
     public function dashboard(): string
@@ -117,6 +119,27 @@ class Admin extends BaseController
             'page_title' => 'Dashboard',
             'slug'       => 'dashboard',
         ];
+        if (inDepartment(EXECUTIVE_DEPARTMENT)) {
+            [$code, $body]     = $this->callApi('v1/staff/dashboard/executive', []);
+            $data['executive'] = $code === 200 && is_array($body['data'] ?? null) ? $body['data'] : null;
+            $data['error']     = $data['executive'] === null ? ($body['message'] ?? 'The service is unavailable. Please try again later.') : null;
+
+            return view('admin_dashboard_executive', $data);
+        }
+        if (inDepartment(ENGINEERING_DEPARTMENT)) {
+            [$code, $body]       = $this->callApi('v1/staff/dashboard/engineering', []);
+            $data['engineering'] = $code === 200 && is_array($body['data'] ?? null) ? $body['data'] : null;
+            $data['error']       = $data['engineering'] === null ? ($body['message'] ?? 'The service is unavailable. Please try again later.') : null;
+
+            return view('admin_dashboard_engineering', $data);
+        }
+        if (inDepartment(FINANCE_DEPARTMENT)) {
+            [$code, $body]   = $this->callApi('v1/staff/dashboard/finance', []);
+            $data['finance'] = $code === 200 && is_array($body['data'] ?? null) ? $body['data'] : null;
+            $data['error']   = $data['finance'] === null ? ($body['message'] ?? 'The service is unavailable. Please try again later.') : null;
+
+            return view('admin_dashboard_finance', $data);
+        }
         return view('admin_dashboard', $data);
     }
 
