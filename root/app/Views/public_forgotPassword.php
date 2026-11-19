@@ -15,7 +15,7 @@
                     </div>
                     <button type="submit" class="btn btn-primary w-100">Send Reset Link</button>
                 </form>
-                <a href="<?= base_url() ?>" class="btn btn-link w-100">Back to sign in</a>
+                <p class="fauth-foot-text"><a href="<?= base_url() ?>" class="btn btn-link w-100">Back to sign in</a></p>
             </div>
 <?php $this->endSection() ?>
 <?= $this->section('script') ?>

@@ -309,5 +309,32 @@
 <script src="<?= assets_url('themes/admin/js/main.js') ?>"></script>
 <script src="<?= assets_url('themes/admin/js/apps-sidebar-toggle.js') ?>"></script>
 <script src="<?= assets_url('themes/admin/js/notification-center.js') ?>"></script>
+<script>
+    // Ends the session when the JWT expires (session 'expires_at'): logout destroys the session and returns to the login page.
+    // The deadline counts the seconds the server has left from this page's load, so a skewed client clock does not matter;
+    // it is checked on a timer and whenever the tab comes back, since timers stall while a laptop sleeps.
+    (function () {
+        const logoutUrl = <?= json_encode(base_url('logout')) ?>;
+        const deadline  = Date.now() + <?= max(0, (int) session('expires_at') - time()) ?> * 1000;
+        let leaving     = false;
+        function leave(url) {
+            if (leaving) return;
+            leaving = true;
+            window.location.replace(url || logoutUrl);
+        }
+        function check() {
+            if (Date.now() >= deadline) leave();
+        }
+        setTimeout(check, Math.min(Math.max(deadline - Date.now(), 0), 2147483647));
+        setInterval(check, 15000);
+        document.addEventListener('visibilitychange', check);
+        window.addEventListener('focus', check);
+        check();
+        // AuthFilter answers AJAX with 401 once the session is gone (e.g. signed out in another tab)
+        $(document).ajaxError(function (event, xhr) {
+            if (401 === xhr.status) leave(xhr.responseJSON && xhr.responseJSON.redirect);
+        });
+    })();
+</script>
 </body>
 </html>

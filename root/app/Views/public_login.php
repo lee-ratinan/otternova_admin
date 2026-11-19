@@ -43,7 +43,7 @@
                     <button type="submit" class="btn btn-primary w-100">Change Password</button>
                     <button type="button" id="password-back" class="btn btn-link w-100">Back to sign in</button>
                 </form>
-                <p class="fauth-foot-text">Don’t have your account? Tell your boss! | Forgot your password, <a href="<?= base_url('forgot-password') ?>" class="fauth-link">reset now</a></p>
+                <p class="fauth-foot-text">Don’t have your account? Tell your boss!<br/>Forgot your password, <a href="<?= base_url('forgot-password') ?>" class="fauth-link">reset now</a></p>
             </div>
 <?php $this->endSection() ?>
 <?= $this->section('script') ?>
