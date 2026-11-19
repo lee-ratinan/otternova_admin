@@ -140,6 +140,13 @@ class Admin extends BaseController
 
             return view('admin_dashboard_finance', $data);
         }
+        if (inDepartment(CLIENT_EXPERIENCE_DEPARTMENT)) {
+            [$code, $body]            = $this->callApi('v1/staff/dashboard/client-experience', []);
+            $data['clientExperience'] = $code === 200 && is_array($body['data'] ?? null) ? $body['data'] : null;
+            $data['error']            = $data['clientExperience'] === null ? ($body['message'] ?? 'The service is unavailable. Please try again later.') : null;
+
+            return view('admin_dashboard_client_experience', $data);
+        }
         return view('admin_dashboard', $data);
     }
 
@@ -1120,6 +1127,15 @@ class Admin extends BaseController
         'S' => ['label' => 'Spam', 'class' => 'bg-secondary'],
     ];
 
+    /** What a message turned out to be (contact_message.message_category), set by staff */
+    public const MESSAGE_CATEGORIES = [
+        'I' => ['label' => 'Issue', 'class' => 'bg-danger', 'help' => 'A real problem on our side'],
+        'C' => ['label' => 'Complaint', 'class' => 'bg-warning text-dark', 'help' => 'Unhappy with us or the service'],
+        'U' => ['label' => 'User Problem', 'class' => 'bg-info text-dark', 'help' => 'The customer\'s own doing'],
+        'M' => ['label' => 'Misunderstanding', 'class' => 'bg-primary', 'help' => 'Expected something it does not do, or misread it'],
+        'X' => ['label' => 'Irrelevant', 'class' => 'bg-secondary', 'help' => 'Nothing to do with OtterNova'],
+    ];
+
     /**
      * The inbox: the contact form's messages, newest first; the new ones at first
      * @return string
@@ -1163,6 +1179,7 @@ class Admin extends BaseController
             $row['sender']  = '<div>' . esc((string) $row['name']) . '</div><div class="small text-secondary">' . esc((string) $row['email_address']) . '</div>';
             $row['topic']   = '<div class="fw-semibold">' . esc((string) $row['subject']) . '</div><div class="small text-secondary">' . esc((string) ($row['excerpt'] ?? '')) . '</div>';
             $row['handled'] = null === ($row['handled_by_name'] ?? null) ? '—' : (string) $row['handled_by_name'];
+            $row['response'] = isset($row['response_seconds']) ? formatDuration((int) $row['response_seconds']) : '—';
             return $row;
         }, (array) ($result['rows'] ?? []));
 
@@ -1222,6 +1239,31 @@ class Admin extends BaseController
     }
 
     /**
+     * Set what a message turned out to be through LINK_INTERNAL_API v1/staff/inbox/message/category: { id, category };
+     * an empty category clears it
+     * @return ResponseInterface
+     */
+    public function inboxCategory(): ResponseInterface
+    {
+        [$code, $body] = $this->callApi('v1/staff/inbox/message/category', [
+            'id'       => (int) $this->request->getPost('id'),
+            'category' => strtoupper(trim((string) $this->request->getPost('category'))),
+        ]);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            return $this->response->setStatusCode($code === 200 ? 422 : $code)->setJSON([
+                'success'   => false,
+                'message'   => $body['message'] ?? 'Could not update the message. Please try again.',
+                'csrf_hash' => csrf_hash(),
+            ]);
+        }
+        return $this->response->setJSON([
+            'success'   => true,
+            'message'   => $body['message'] ?? 'Category saved.',
+            'csrf_hash' => csrf_hash(),
+        ]);
+    }
+
+    /**
      * Table Builder configuration of the inbox, shared by the page and its JSON endpoint
      * @return array
      */
@@ -1243,10 +1285,14 @@ class Admin extends BaseController
                 $column('sender', 'From', ['type' => 'html', 'searchable' => true]),
                 $column('topic', 'Subject', ['type' => 'html', 'searchable' => true]),
                 $column('status', 'Status', ['type' => 'badge', 'badges' => self::MESSAGE_STATUSES]),
+                $column('message_category', 'Category', ['type' => 'badge', 'badges' => self::MESSAGE_CATEGORIES]),
                 $column('handled', 'Handled By'),
+                $column('response', 'Resolved In'),
             ],
             'filters'     => [
                 ['name' => 'status', 'type' => 'select', 'label' => 'Status', 'options' => array_map(static fn (array $b): string => $b['label'], self::MESSAGE_STATUSES)],
+                ['name' => 'category', 'type' => 'select', 'label' => 'Category',
+                    'options' => array_map(static fn (array $b): string => $b['label'], self::MESSAGE_CATEGORIES) + ['none' => 'Not categorised']],
             ],
             'order'       => [],
             'page_length' => 25,

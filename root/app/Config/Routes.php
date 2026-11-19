@@ -56,6 +56,7 @@ $routes->group('admin', ['filter' => 'auth'], static function($routes) {
     $routes->post('inbox', 'Admin::inboxList');
     $routes->get('inbox/view/(:num)', 'Admin::inboxView/$1');
     $routes->post('inbox/status', 'Admin::inboxStatus');
+    $routes->post('inbox/category', 'Admin::inboxCategory');
     // the website's and the marketplace's traffic, from the tracker; the page's cards load through traffic/data/*; see App\Controllers\Traffic
     $routes->get('traffic', 'Traffic::index');
     $routes->get('traffic/(www|mart)', 'Traffic::show/$1');

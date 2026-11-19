@@ -90,6 +90,8 @@ define('EXECUTIVE_DEPARTMENT', ['EXE']);
 define('FINANCE_DEPARTMENT', ['FIN']);
 // ... whose dashboard is the Engineering one (the API lets EXE and ENG read it)
 define('ENGINEERING_DEPARTMENT', ['ENG']);
+// ... whose dashboard is the Client Experience one (the API lets EXE and CXD read it)
+define('CLIENT_EXPERIENCE_DEPARTMENT', ['CXD']);
 // otternova_department.department_code values that may use the ledger (the API checks the same list)
 define('LEDGER_DEPARTMENTS', ['EXE', 'FIN']);
 // ... and that may manage the plans, prices, payment methods and discounts (the API checks the same list)

@@ -206,3 +206,29 @@ if (!function_exists('assets_url')) {
         return rtrim(getenv('LINK_ASSETS'), '/') . '/' . ltrim($path, '/');
     }
 }
+if (!function_exists('formatDuration')) {
+    /**
+     * A length of time, short and rounded down: "under 1 min", "45 min", "3 h 20 min", "2 d 4 h"
+     * @param int|null $seconds
+     * @return string "—" when there is none
+     */
+    function formatDuration(?int $seconds): string
+    {
+        if ($seconds === null) {
+            return '—';
+        }
+        $minutes = intdiv(max(0, $seconds), 60);
+        if ($minutes < 1) {
+            return 'under 1 min';
+        }
+        if ($minutes < 60) {
+            return $minutes . ' min';
+        }
+        $hours = intdiv($minutes, 60);
+        if ($hours < 24) {
+            return $hours . ' h' . ($minutes % 60 > 0 ? ' ' . ($minutes % 60) . ' min' : '');
+        }
+
+        return intdiv($hours, 24) . ' d' . ($hours % 24 > 0 ? ' ' . ($hours % 24) . ' h' : '');
+    }
+}
