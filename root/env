@@ -67,3 +67,12 @@
 #--------------------------------------------------------------------
 
 # logger.threshold = 4
+
+#--------------------------------------------------------------------
+# ERROR LOGS: each app's writable/logs folder, as this app sees it
+#--------------------------------------------------------------------
+
+# ERROR_LOG_PATH_API = /var/www/logs/otternova_api
+# ERROR_LOG_PATH_ADMIN = /var/www/html/writable/logs
+# ERROR_LOG_PATH_CLIENT = /var/www/logs/otternova_client
+# ERROR_LOG_PATH_MART = /var/www/logs/otternova_mart

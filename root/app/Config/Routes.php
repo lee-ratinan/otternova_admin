@@ -61,13 +61,11 @@ $routes->group('admin', ['filter' => 'auth'], static function($routes) {
     $routes->get('traffic', 'Traffic::index');
     $routes->get('traffic/(www|mart)', 'Traffic::show/$1');
     $routes->post('traffic/data/(overview|breakdown|visits|businesses)', 'Traffic::data/$1');
-    // Client Controller
-    $routes->get('client/contracts', 'Client::contracts');
-    $routes->get('client/businesses', 'Client::businesses');
-    $routes->get('client/users', 'Client::users');
-    $routes->get('client/reports', 'Client::reports');
+    // every business in the system, by business_slug; see App\Controllers\ClientBusinesses
+    $routes->get('clients/businesses', 'ClientBusinesses::businesses');
+    $routes->post('clients/businesses', 'ClientBusinesses::businessesList');
+    $routes->get('clients/businesses/view/(:segment)', 'ClientBusinesses::businessView/$1');
     // Log Controller
-    $routes->get('logs/errors', 'Logs::errors');
     $routes->get('logs/emails', 'Logs::emails');
     // Settings Controller
     $routes->get('settings/languages', 'Settings::languages'); // complete
@@ -129,6 +127,14 @@ $routes->group('admin/logs', ['filter' => ['auth', 'department:EXE']], static fu
     // ?table=plan_master&id=12&search=PLUS links to one record's history; see App\Controllers\Logs
     $routes->get('activities', 'Logs::activities');
     $routes->post('activities', 'Logs::activitiesList');
+});
+
+// The apps' error logs, read from the folders in .env (ERROR_LOG_PATH_*): staff of the Executive Office and Engineering only (ERROR_LOG_DEPARTMENTS)
+$routes->group('admin/logs/errors', ['filter' => ['auth', 'department:EXE,ENG']], static function($routes) {
+    // pick an app, then one of its log-YYYY-MM-DD.log files; ?download=1 saves it; see App\Controllers\ErrorLogs
+    $routes->get('/', 'ErrorLogs::sites');
+    $routes->get('(api|admin|client|mart)', 'ErrorLogs::files/$1');
+    $routes->get('(api|admin|client|mart)/(:segment)', 'ErrorLogs::file/$1/$2');
 });
 
 // The ledger: staff of the Executive Office and Finance only (LEDGER_DEPARTMENTS; the API checks the same)

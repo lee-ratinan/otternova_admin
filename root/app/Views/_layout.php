@@ -1,7 +1,15 @@
 <!DOCTYPE html>
 <html lang="en-US">
 <head>
-    <?php $page_title = $page_title ?? '[UNTITLED PAGE TITLE]'; ?>
+    <?php
+    $page_title = $page_title ?? '[UNTITLED PAGE TITLE]';
+    // the signed-in staff member, as the sign-in response put them in the session; see App\Controllers\Home::createSession()
+    helper('user');
+    $sessionUser = (array) (session('user') ?? []);
+    $userName    = userDisplayName($sessionUser);
+    $userEmail   = trim((string) ($sessionUser['email_address'] ?? ''));
+    $userRole    = trim((string) ($sessionUser['job_title'] ?? ''));
+    ?>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $page_title . ' | ' . SITE_TITLE ?></title>
@@ -44,9 +52,9 @@
         <div class="header-actions-desktop">
             <div class="header-action-cluster">
                 <!-- LINKS -->
-                <a class="header-action" href="<?= getenv('LINK_WWW') ?>" target="_blank" title="Public Website"><i class="bi bi-globe"></i></a>
-                <a class="header-action" href="<?= getenv('LINK_CLIENT') ?>" target="_blank" title="Client System"><i class="bi bi-people"></i></a>
-                <a class="header-action" href="<?= getenv('LINK_MART') ?>" target="_blank" title="Marketplace"><i class="bi bi-bag-check"></i></a>
+<!--                <a class="header-action" href="--><?php //= getenv('LINK_WWW') ?><!--" target="_blank" title="Public Website"><i class="bi bi-globe"></i></a>-->
+<!--                <a class="header-action" href="--><?php //= getenv('LINK_CLIENT') ?><!--" target="_blank" title="Client System"><i class="bi bi-people"></i></a>-->
+<!--                <a class="header-action" href="--><?php //= getenv('LINK_MART') ?><!--" target="_blank" title="Marketplace"><i class="bi bi-bag-check"></i></a>-->
                 <!-- MODE -->
                 <button class="header-action theme-toggle" title="Toggle Theme">
                     <i class="bi bi-moon theme-icon-dark"></i>
@@ -100,8 +108,8 @@
                 <button class="dropdown-toggle user-trigger" data-bs-toggle="dropdown" aria-expanded="false">
                     <img src="<?= esc(avatarUrl(session('user')['avatar_path'] ?? null), 'attr') ?>" alt="User Avatar" class="user-avatar">
                     <div class="user-brief">
-                        <span class="user-name">[EIKIN RIKIKAWA]</span>
-                        <span class="user-role">[OTTER CEO]</span>
+                        <span class="user-name"><?= esc('' === $userName ? $userEmail : $userName) ?></span>
+                        <?php if ('' !== $userRole) : ?><span class="user-role"><?= esc($userRole) ?></span><?php endif; ?>
                     </div>
                     <i class="bi bi-chevron-down user-chevron"></i>
                 </button>
@@ -109,8 +117,8 @@
                     <div class="user-menu-header">
                         <img src="<?= esc(avatarUrl(session('user')['avatar_path'] ?? null), 'attr') ?>" alt="User Avatar" class="user-menu-avatar">
                         <div class="user-menu-info">
-                            <div class="user-menu-name">[EIKIN RIKIKAWA]</div>
-                            <div class="user-menu-email">[eikin@otternova.com]</div>
+                            <div class="user-menu-name"><?= esc('' === $userName ? $userEmail : $userName) ?></div>
+                            <div class="user-menu-email"><?= esc($userEmail) ?></div>
                         </div>
                     </div>
                     <div class="user-menu-body">
@@ -142,7 +150,7 @@
 <!-- Mobile Menu -->
 <div class="mobile-header-menu">
     <div class="mobile-header-menu-content">
-        <a class="mobile-menu-item" href="<?= getenv('LINK_WWW') ?>" target="_blank" title="Public Website">
+        <?php  /* <a class="mobile-menu-item" href="<?= getenv('LINK_WWW') ?>" target="_blank" title="Public Website">
             <i class="bi bi-globe"></i>
             <span class="mobile-menu-label">Public</span>
         </a>
@@ -153,7 +161,7 @@
         <a class="mobile-menu-item" href="<?= getenv('LINK_MART') ?>" target="_blank" title="Marketplace">
             <i class="bi bi-bag-check"></i>
             <span class="mobile-menu-label">Marketplace</span>
-        </a>
+        </a> */ ?>
         <button class="mobile-menu-item theme-toggle" title="Toggle Theme">
             <i class="bi bi-moon theme-icon-dark"></i>
             <i class="bi bi-brightness-high theme-icon-light"></i>
@@ -161,7 +169,7 @@
         </button>
         <a href="<?= base_url('admin/notifications') ?>" class="mobile-menu-item">
             <i class="bi bi-bell"></i>
-            <span class="badge">4</span>
+            <span class="badge d-none" data-notification-badge>0</span><!-- the unread count, from notification-center.js -->
             <span class="mobile-menu-label">Notifications</span>
         </a>
         <a href="<?= base_url('admin/profile') ?>" class="mobile-menu-item">
@@ -203,8 +211,6 @@
             <li class="nav-item"><a class="nav-link <?= ('clients-withholding' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/clients/withholding') ?>"><span class="nav-icon"><i class="bi bi-percent"></i></span><span class="nav-text">Withholding Tax</span></a></li>
             <?php endif; ?>
             <li class="nav-item"><a class="nav-link <?= ('clients-businesses' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/clients/businesses') ?>"><span class="nav-icon"><i class="bi bi-suitcase-lg"></i></span><span class="nav-text">Businesses</span></a></li>
-            <li class="nav-item"><a class="nav-link <?= ('clients-users' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/clients/users') ?>"><span class="nav-icon"><i class="bi bi-person-gear"></i></span><span class="nav-text">Users</span></a></li>
-            <li class="nav-item"><a class="nav-link <?= ('clients-reports' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/clients/reports') ?>"><span class="nav-icon"><i class="bi bi-file-bar-graph"></i></span><span class="nav-text">Reports</span></a></li>
             <!-- INBOX -->
             <li class="nav-heading"><span>Inbox</span></li>
             <li class="nav-item"><a class="nav-link <?= ('inbox' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/inbox') ?>"><span class="nav-icon"><i class="bi bi-inbox"></i></span><span class="nav-text">Inbox</span></a></li>
@@ -225,7 +231,9 @@
             <?php if (inDepartment(LOG_DEPARTMENTS)) : // the Executive Office only; see App\Filters\DepartmentFilter ?>
             <li class="nav-item"><a class="nav-link <?= ('logs-activities' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/logs/activities') ?>"><span class="nav-icon"><i class="bi bi-list-stars"></i></span><span class="nav-text">Activity Logs</span></a></li>
             <?php endif; ?>
+            <?php if (inDepartment(ERROR_LOG_DEPARTMENTS)) : // the Executive Office and Engineering only; see App\Filters\DepartmentFilter ?>
             <li class="nav-item"><a class="nav-link <?= ('logs-error' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/logs/errors') ?>"><span class="nav-icon"><i class="bi bi-bug"></i></span><span class="nav-text">Error Logs</span></a></li>
+            <?php endif; ?>
             <li class="nav-item"><a class="nav-link <?= ('logs-emails' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/logs/emails') ?>"><span class="nav-icon"><i class="bi bi-envelope"></i></span><span class="nav-text">Email Logs</span></a></li>
             <!-- SETTINGS -->
             <li class="nav-heading"><span>Settings</span></li>
@@ -238,8 +246,8 @@
             <a href="<?= base_url('admin/profile') ?>" class="sidebar-footer-profile">
                 <img src="<?= esc(avatarUrl(session('user')['avatar_path'] ?? null), 'attr') ?>" alt="User Avatar" class="sidebar-footer-avatar">
                 <div class="sidebar-footer-info">
-                    <div class="sidebar-footer-name">[EIKIN RIKIKAWA]</div>
-                    <div class="sidebar-footer-role">[OTTER CEO]</div>
+                    <div class="sidebar-footer-name"><?= esc('' === $userName ? $userEmail : $userName) ?></div>
+                    <?php if ('' !== $userRole) : ?><div class="sidebar-footer-role"><?= esc($userRole) ?></div><?php endif; ?>
                 </div>
             </a>
             <div class="sidebar-footer-actions">
