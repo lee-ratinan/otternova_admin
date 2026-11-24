@@ -13,7 +13,7 @@ $this->extend('_layout');
     <section class="section">
         <div class="row g-4">
             <?php foreach ($sites as $site => $s): ?>
-                <div class="col-12 col-md-6 col-xl-3">
+                <div class="col-12 col-md-6 col-xl-4">
                     <div class="card h-100">
                         <div class="card-header">
                             <h5 class="card-title"><i class="bi <?= esc($s['icon'], 'attr') ?> me-1"></i> <?= esc($s['label']) ?></h5>

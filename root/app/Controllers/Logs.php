@@ -6,9 +6,10 @@ use CodeIgniter\HTTP\ResponseInterface;
 use Throwable;
 
 /**
- * The activity log (log_activity), behind the auth and department:EXE filters, read through LINK_INTERNAL_API
- * v1/staff/logs/*, which checks the department again. A record's history has its own link:
- * admin/logs/activities?table=plan_master&id=12 (and &search=… to look within it). Every time from the API is UTC
+ * The activity log (log_activity), behind the auth and department:EXE,ENG filters, and the email log (email_log),
+ * behind auth and department:EXE,CXD,ENG, both read through LINK_INTERNAL_API v1/staff/logs/*, which checks the department
+ * again. A record's history has its own link: admin/logs/activities?table=plan_master&id=12 (and &search=… to look
+ * within it); an address's emails too: admin/logs/emails?search=ann@example.com. Every time from the API is UTC
  * and shown in the viewer's timezone.
  */
 class Logs extends BaseController
@@ -98,6 +99,86 @@ class Logs extends BaseController
         ) + ['csrf_hash' => csrf_hash()]);
     }
 
+    /** email_log.status as the API writes it */
+    public const EMAIL_STATUSES = [
+        'S' => ['label' => 'Sent', 'class' => 'bg-success'],
+        'F' => ['label' => 'Failed', 'class' => 'bg-danger'],
+        'X' => ['label' => 'Not sent', 'class' => 'bg-secondary'],
+    ];
+
+    /**
+     * The email log, newest first; ?type= and ?status= filter it, ?search= finds an address or a subject
+     * @return string
+     */
+    public function emails(): string
+    {
+        $types = $this->emailTypeOptions();
+        $type  = trim((string) $this->request->getGet('type'));
+        $type  = preg_match(self::EMAIL_TYPE_PATTERN, $type) ? $type : '';
+        if ($type !== '' && ! isset($types[$type])) {
+            $types[$type] = self::emailTypeLabel($type); // a link to a type with no email yet still shows what it asked for
+            asort($types);
+        }
+        $status = (string) $this->request->getGet('status');
+        $status = isset(self::EMAIL_STATUSES[$status]) ? $status : '';
+        $search = mb_substr(trim((string) $this->request->getGet('search')), 0, 254);
+
+        $config           = $this->emailListConfig($types);
+        $config['values'] = ['email_type' => $type, 'status' => $status];
+        if ($search !== '') {
+            $config['dt_options']['search'] = ['search' => $search];
+        }
+
+        return view('admin_logs_emails', [
+            'page_title' => 'Email Logs',
+            'slug'       => 'logs-emails',
+            'listConfig' => $config,
+        ]);
+    }
+
+    /**
+     * One page of the email log: the DataTables request forwarded to LINK_INTERNAL_API v1/staff/logs/emails
+     * @return ResponseInterface
+     */
+    public function emailsList(): ResponseInterface
+    {
+        $config  = $this->emailListConfig([]);
+        $params  = lb_request($this->request, $config);
+        $filters = [];
+        foreach ($params['filters'] as $item) {
+            $filters[$item['def']['name']] = (string) $item['value'];
+        }
+        [$code, $body] = $this->callApi('v1/staff/logs/emails', [
+            'start'   => $params['start'],
+            'length'  => $params['length'],
+            'search'  => $params['search'],
+            'filters' => $filters,
+        ]);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            return $this->response->setJSON(lb_response($params['draw'], 0, 0, [])
+                + ['error' => $body['message'] ?? 'Could not load the email log. Please try again.', 'csrf_hash' => csrf_hash()]);
+        }
+
+        $result = (array) ($body['data'] ?? []);
+        $rows   = array_map(static fn (array $row): array => [
+            'id'         => $row['id'],
+            'created_at' => (string) ($row['created_at'] ?? ''),
+            'type'       => self::emailTypeLabel((string) ($row['email_type'] ?? '')),
+            'recipient'  => self::recipientHtml($row),
+            'subject'    => (string) ($row['subject'] ?? ''),
+            'locale'     => (string) ($row['locale'] ?? ''),
+            'status'     => (string) ($row['status'] ?? ''),
+            'error'      => (string) ($row['error_message'] ?? ''),
+        ], (array) ($result['rows'] ?? []));
+
+        return $this->response->setJSON(lb_response(
+            $params['draw'],
+            (int) ($result['records_total'] ?? 0),
+            (int) ($result['records_filtered'] ?? 0),
+            $rows
+        ) + ['csrf_hash' => csrf_hash()]);
+    }
+
     // ---- configuration ----
 
     /**
@@ -145,6 +226,61 @@ class Logs extends BaseController
         return $extra + ['data' => $data, 'db' => $data, 'title' => $title, 'orderable' => false, 'searchable' => false];
     }
 
+    /** An email_type as the API writes it */
+    private const EMAIL_TYPE_PATTERN = '/^[a-z][a-z0-9_]{0,63}$/';
+
+    /**
+     * Table Builder configuration of the email log, shared by the page and its JSON endpoint
+     * @param array<string, string> $types email_type => label for the type filter; none for the JSON endpoint (the API checks it)
+     * @return array
+     */
+    private function emailListConfig(array $types): array
+    {
+        $statuses = array_map(static fn (array $s): string => $s['label'], self::EMAIL_STATUSES);
+
+        return [
+            'table_id'    => 'emailLogTable',
+            'title'       => 'Email Logs',
+            'subtitle'    => 'Every email the system sent or tried to send, newest first. Search finds an address or a subject. The emails\' content is not kept.',
+            'id_field'    => 'id',
+            'editable'    => false,
+            'urls'        => ['data' => base_url('admin/logs/emails')],
+            'columns'     => [
+                self::column('created_at', 'Time', ['type' => 'datetime', 'class' => 'text-nowrap']),
+                self::column('type', 'Type', ['class' => 'text-nowrap']),
+                self::column('recipient', 'Recipient', ['type' => 'html']),
+                self::column('subject', 'Subject'),
+                self::column('locale', 'Language', ['class' => 'text-nowrap']),
+                self::column('status', 'Status', ['type' => 'badge', 'badges' => self::EMAIL_STATUSES]),
+                self::column('error', 'Error', ['width' => '20%', 'class' => 'small text-break']),
+            ],
+            'filters'     => [
+                ['name' => 'email_type', 'type' => 'select', 'label' => 'Type', 'options' => $types, 'col' => 4],
+                ['name' => 'status', 'type' => 'select', 'label' => 'Status', 'options' => $statuses, 'col' => 3],
+            ],
+            'order'       => [],
+            'page_length' => 25,
+            'dt_options'  => ['ordering' => false],
+        ];
+    }
+
+    /**
+     * The email types the log has rows of, as email_type => label; none when they cannot be loaded
+     * @return array<string, string>
+     */
+    private function emailTypeOptions(): array
+    {
+        [$code, $body] = $this->callApi('v1/staff/logs/email-types', []);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            return [];
+        }
+        $types = array_values(array_filter((array) ($body['data']['types'] ?? []), 'is_string'));
+        $types = array_combine($types, array_map(self::emailTypeLabel(...), $types));
+        asort($types);
+
+        return $types;
+    }
+
     /**
      * The tables the log has rows of, as table => table; none when they cannot be loaded
      * @return array<string, string>
@@ -171,6 +307,35 @@ class Logs extends BaseController
     public static function url(string $table, ?int $id = null): string
     {
         return base_url('admin/logs/activities') . '?' . http_build_query(array_filter(['table' => $table, 'id' => $id]));
+    }
+
+    /**
+     * An email_type for people: order_placed_paid -> Order placed paid
+     * @param string $type
+     * @return string
+     */
+    private static function emailTypeLabel(string $type): string
+    {
+        return $type === '' ? '' : ucfirst(str_replace('_', ' ', $type));
+    }
+
+    /**
+     * The address the email was for, linked to its other emails, and below it where it really went when beta sent it
+     * to a tester instead
+     * @param array $row
+     * @return string
+     */
+    private static function recipientHtml(array $row): string
+    {
+        $recipient = (string) ($row['recipient'] ?? '');
+        $html      = '<a class="text-break" href="' . esc(base_url('admin/logs/emails') . '?' . http_build_query(['search' => $recipient]), 'attr')
+            . '" title="This address\'s emails">' . esc($recipient) . '</a>';
+        $deliveredTo = (string) ($row['delivered_to'] ?? '');
+        if ($deliveredTo !== '' && strcasecmp($deliveredTo, $recipient) !== 0) {
+            $html .= '<div class="small text-secondary text-break">&rarr; ' . esc($deliveredTo) . '</div>';
+        }
+
+        return $html;
     }
 
     /**

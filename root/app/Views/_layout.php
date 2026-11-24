@@ -233,13 +233,15 @@
             <?php endif; ?>
             <!-- LOGS -->
             <li class="nav-heading"><span>Maintenance</span></li>
-            <?php if (inDepartment(LOG_DEPARTMENTS)) : // the Executive Office only; see App\Filters\DepartmentFilter ?>
+            <?php if (inDepartment(LOG_DEPARTMENTS)) : // the Executive Office and Engineering only; see App\Filters\DepartmentFilter ?>
             <li class="nav-item"><a class="nav-link <?= ('logs-activities' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/logs/activities') ?>"><span class="nav-icon"><i class="bi bi-list-stars"></i></span><span class="nav-text">Activity Logs</span></a></li>
             <?php endif; ?>
             <?php if (inDepartment(ERROR_LOG_DEPARTMENTS)) : // the Executive Office and Engineering only; see App\Filters\DepartmentFilter ?>
             <li class="nav-item"><a class="nav-link <?= ('logs-error' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/logs/errors') ?>"><span class="nav-icon"><i class="bi bi-bug"></i></span><span class="nav-text">Error Logs</span></a></li>
             <?php endif; ?>
+            <?php if (inDepartment(EMAIL_LOG_DEPARTMENTS)) : // the Executive Office, Client Experience and Engineering only; see App\Filters\DepartmentFilter ?>
             <li class="nav-item"><a class="nav-link <?= ('logs-emails' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/logs/emails') ?>"><span class="nav-icon"><i class="bi bi-envelope"></i></span><span class="nav-text">Email Logs</span></a></li>
+            <?php endif; ?>
             <!-- SETTINGS -->
             <li class="nav-heading"><span>Settings</span></li>
             <li class="nav-item"><a class="nav-link <?= ('settings-languages' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/settings/languages') ?>"><span class="nav-icon"><i class="bi bi-translate"></i></span><span class="nav-text">Languages</span></a></li>

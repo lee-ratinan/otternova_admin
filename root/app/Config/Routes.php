@@ -36,10 +36,6 @@ $routes->group('admin', ['filter' => 'auth'], static function($routes) {
     $routes->get('business-types/create', 'Admin::businessTypesEdit/create');
     $routes->get('business-types/edit/(:segment)', 'Admin::businessTypesEdit/$1');
     $routes->post('business-types/save', 'Admin::businessTypesEditPost');
-
-
-
-
     // the signed-in staff member's notifications, by public_id; see App\Controllers\Notifications
     $routes->get('notifications', 'Notifications::index');
     $routes->post('notifications/latest', 'Notifications::latest');
@@ -65,8 +61,6 @@ $routes->group('admin', ['filter' => 'auth'], static function($routes) {
     $routes->get('clients/businesses', 'ClientBusinesses::businesses');
     $routes->post('clients/businesses', 'ClientBusinesses::businessesList');
     $routes->get('clients/businesses/view/(:segment)', 'ClientBusinesses::businessView/$1');
-    // Log Controller
-    $routes->get('logs/emails', 'Logs::emails');
     // Settings Controller
     $routes->get('settings/languages', 'Settings::languages'); // complete
     $routes->get('settings/countries', 'Settings::countries'); // complete
@@ -122,11 +116,18 @@ $routes->group('admin', ['filter' => ['auth', 'department:EXE,FIN']], static fun
     $routes->get('clients/withholding/certificate/(:segment)', 'ClientBilling::certificateFile/$1');
 });
 
-// The activity log: staff of the Executive Office only (LOG_DEPARTMENTS; the API checks the same)
-$routes->group('admin/logs', ['filter' => ['auth', 'department:EXE']], static function($routes) {
+// The activity log: staff of the Executive Office and Engineering only (LOG_DEPARTMENTS; the API checks the same)
+$routes->group('admin/logs', ['filter' => ['auth', 'department:EXE,ENG']], static function($routes) {
     // ?table=plan_master&id=12&search=PLUS links to one record's history; see App\Controllers\Logs
     $routes->get('activities', 'Logs::activities');
     $routes->post('activities', 'Logs::activitiesList');
+});
+
+// The email log: staff of the Executive Office, Client Experience and Engineering only (EMAIL_LOG_DEPARTMENTS; the API checks the same)
+$routes->group('admin/logs', ['filter' => ['auth', 'department:EXE,CXD,ENG']], static function($routes) {
+    // ?search=ann@example.com links to one address's emails; see App\Controllers\Logs
+    $routes->get('emails', 'Logs::emails');
+    $routes->post('emails', 'Logs::emailsList');
 });
 
 // The apps' error logs, read from the folders in .env (ERROR_LOG_PATH_*): staff of the Executive Office and Engineering only (ERROR_LOG_DEPARTMENTS)

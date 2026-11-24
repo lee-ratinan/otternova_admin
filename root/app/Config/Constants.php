@@ -97,6 +97,8 @@ define('LEDGER_DEPARTMENTS', ['EXE', 'FIN']);
 // ... and that may manage the plans, prices, payment methods and discounts (the API checks the same list)
 define('PLAN_DEPARTMENTS', ['EXE', 'FIN']);
 // ... and that may read the activity log, which holds every table's changes (the API checks the same list)
-define('LOG_DEPARTMENTS', ['EXE']);
+define('LOG_DEPARTMENTS', ['EXE', 'ENG']);
 // ... and that may read the apps' error logs (writable/logs), which hold stack traces and request details
 define('ERROR_LOG_DEPARTMENTS', ['EXE', 'ENG']);
+// ... and that may read the email log, to answer whether a customer got an email (the API checks the same list)
+define('EMAIL_LOG_DEPARTMENTS', ['EXE', 'CXD', 'ENG']);
