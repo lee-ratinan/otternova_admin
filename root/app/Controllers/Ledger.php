@@ -5,7 +5,10 @@ namespace App\Controllers;
 use App\Models\OtternovaLedgerAccountModel;
 use App\Models\OtternovaLedgerCategoryModel;
 use App\Models\OtternovaLedgerCounterpartyModel;
+use App\Models\OtternovaLedgerEntityModel;
 use App\Models\OtternovaLedgerMasterModel;
+use App\Models\OtternovaLedgerPostingRuleModel;
+use App\Models\OtternovaLedgerTaxCodeModel;
 use CodeIgniter\Exceptions\PageNotFoundException;
 use CodeIgniter\HTTP\ResponseInterface;
 use CURLFile;
@@ -13,17 +16,29 @@ use RuntimeException;
 use Throwable;
 
 /**
- * The ledger pages, behind the auth and department:EXE,FIN filters: the entries with their PDF receipts, and the
- * accounts, categories and counterparties they point at. Everything is read and saved through LINK_INTERNAL_API
+ * The ledger pages, behind the auth and department:EXE,FIN filters: the entries with their PDF receipts, the
+ * accounts, categories and counterparties they point at, and the legal entities whose books they are (the financial
+ * reports are App\Controllers\LedgerReports). Everything is read and saved through LINK_INTERNAL_API
  * v1/staff/ledger/*, which checks the department again.
  */
 class Ledger extends BaseController
 {
     /**
-     * The pages shared by accounts, categories and counterparties, keyed by their URL segment, which is also the
-     * API's list endpoint (v1/staff/ledger/{kind}); 'endpoint' is the API's save endpoint (v1/staff/ledger/{endpoint}/update)
+     * The pages shared by entities, accounts, categories and counterparties, keyed by their URL segment, which is also
+     * the API's list endpoint (v1/staff/ledger/{kind}); 'endpoint' is the API's save endpoint
+     * (v1/staff/ledger/{endpoint}/update); 'references' are the model's columns the API takes by a public_id instead
      */
     private const RECORDS = [
+        'entities'       => [
+            'model'      => OtternovaLedgerEntityModel::class,
+            'endpoint'   => 'entity',
+            'title'      => 'Entities',
+            'subtitle'   => 'The legal entities whose books the ledger keeps; the reports are per entity',
+            'one'        => 'Entity',
+            'name'       => 'entity_name',
+            'filters'    => [],
+            'references' => [],
+        ],
         'accounts'       => [
             'model'    => OtternovaLedgerAccountModel::class,
             'endpoint' => 'account',
@@ -32,6 +47,32 @@ class Ledger extends BaseController
             'one'      => 'Ledger Account',
             'name'     => 'account_name',
             'filters'  => ['account_type', 'account_class'],
+            'references' => ['entity_id' => 'entity_public_id'],
+        ],
+        'tax-codes'      => [
+            'model'      => OtternovaLedgerTaxCodeModel::class,
+            'endpoint'   => 'tax-code',
+            'title'      => 'Tax Codes',
+            'subtitle'   => 'VAT and withholding tax, per entity; a new rate is a new code',
+            'one'        => 'Tax Code',
+            'name'       => 'tax_code',
+            'filters'    => ['tax_kind'],
+            'references' => ['entity_id' => 'entity_public_id', 'account_id' => 'account_public_id'],
+        ],
+        'posting-rules'  => [
+            'model'      => OtternovaLedgerPostingRuleModel::class,
+            'endpoint'   => 'posting-rule',
+            'title'      => 'Posting Rules',
+            'subtitle'   => 'Which entity books the subscription invoices of a country, and into which accounts',
+            'one'        => 'Posting Rule',
+            'name'       => 'country_code',
+            'filters'    => [],
+            'references' => [
+                'entity_id' => 'entity_public_id', 'receivable_account_id' => 'receivable_account_public_id',
+                'deferred_revenue_account_id' => 'deferred_revenue_account_public_id', 'revenue_account_id' => 'revenue_account_public_id',
+                'cash_account_id' => 'cash_account_public_id', 'wht_receivable_account_id' => 'wht_receivable_account_public_id',
+                'wht_tax_code_id' => 'wht_tax_code_public_id', 'category_id' => 'category_public_id',
+            ],
         ],
         'categories'     => [
             'model'    => OtternovaLedgerCategoryModel::class,
@@ -41,6 +82,7 @@ class Ledger extends BaseController
             'one'      => 'Category',
             'name'     => 'category_name',
             'filters'  => [],
+            'references' => [],
         ],
         'counterparties' => [
             'model'    => OtternovaLedgerCounterpartyModel::class,
@@ -50,6 +92,7 @@ class Ledger extends BaseController
             'one'      => 'Counterparty',
             'name'     => 'counterparty_name',
             'filters'  => [],
+            'references' => [],
         ],
     ];
 
@@ -62,6 +105,7 @@ class Ledger extends BaseController
         'from_account_id' => 'from_account_public_id',
         'to_account_id'   => 'to_account_public_id',
         'counterparty_id' => 'counterparty_public_id',
+        'tax_code_id'     => 'tax_code_public_id',
     ];
 
     /** Largest receipt the API accepts (Config\LedgerReceipt::$maxFileSize there) */
@@ -115,6 +159,7 @@ class Ledger extends BaseController
             $row['transaction_date'] = formatDate($row['transaction_date'], LOCALE);
             $row['paid']             = self::formatAmount($row['transaction_currency_code'], $row['transaction_amount']);
             $row['billed']           = self::formatAmount($row['billed_currency_code'], $row['billed_amount']);
+            $row['base']             = self::formatAmount($row['base_currency_code'] ?? null, $row['base_amount'] ?? null);
             $row['counterparty_name'] = (string) ($row['counterparty_name'] ?? '');
             $row['reference_number'] = (string) ($row['reference_number'] ?? '');
             return $row;
@@ -137,20 +182,20 @@ class Ledger extends BaseController
     {
         $mode   = 'create' === $publicId ? 'create' : 'view';
         $values = [];
+        $with   = null;
         if ('view' === $mode) {
-            [$code, $body] = $this->callApi('v1/staff/ledger/entry', ['public_id' => $publicId]);
-            if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
-                throw $code === 404
-                    ? PageNotFoundException::forPageNotFound($body['message'] ?? null)
-                    : new RuntimeException($body['message'] ?? 'Could not load the ledger entry.');
-            }
-            $values = (array) ($body['data']['entry'] ?? []);
-            $values['transaction_amount'] = self::trimAmount($values['transaction_amount'] ?? null);
-            $values['billed_amount']      = self::trimAmount($values['billed_amount'] ?? null);
+            $values = $this->entry($publicId);
+        } elseif ('' !== (string) $this->request->getGet('with')) {
+            // a line of the same transaction, such as its VAT: it starts as a copy of the entry it goes with
+            $with   = $this->entry((string) $this->request->getGet('with'));
+            $values = array_intersect_key($with, array_flip([
+                'transaction_date', 'transaction_detail', 'reference_number', 'category_public_id', 'transaction_currency_code',
+                'billed_currency_code', 'from_account_public_id', 'counterparty_public_id',
+            ])) + ['with_entry_public_id' => $with['public_id']];
         }
 
         $data = [
-            'page_title'  => 'view' === $mode ? 'Ledger Entry ' . $values['public_id'] : 'New Ledger Entry',
+            'page_title'  => 'view' === $mode ? 'Ledger Entry ' . $values['public_id'] : (null === $with ? 'New Ledger Entry' : 'New Line of Entry ' . $with['public_id']),
             'slug'        => 'ledger-entries',
             'breadcrumbs' => [base_url('admin/ledger') => 'Ledger'],
             'formConfig'  => [
@@ -178,6 +223,28 @@ class Ledger extends BaseController
     }
 
     /**
+     * One entry from LINK_INTERNAL_API v1/staff/ledger/entry, its amounts as the form shows them
+     * @param string $publicId
+     * @return array
+     */
+    private function entry(string $publicId): array
+    {
+        [$code, $body] = $this->callApi('v1/staff/ledger/entry', ['public_id' => $publicId]);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            throw $code === 404
+                ? PageNotFoundException::forPageNotFound($body['message'] ?? null)
+                : new RuntimeException($body['message'] ?? 'Could not load the ledger entry.');
+        }
+        $values = (array) ($body['data']['entry'] ?? []);
+        $values['transaction_amount'] = self::trimAmount($values['transaction_amount'] ?? null);
+        $values['billed_amount']      = self::trimAmount($values['billed_amount'] ?? null);
+        $values['tax_base_amount']    = self::trimAmount($values['tax_base_amount'] ?? null);
+        $values['base_rate']          = self::trimRate($values['base_rate'] ?? null);
+
+        return $values;
+    }
+
+    /**
      * Save an entry: an empty public_id creates one, otherwise the entry with that public_id is updated.
      * Forwarded to LINK_INTERNAL_API v1/staff/ledger/entry/update, which validates it
      * @return ResponseInterface
@@ -188,7 +255,10 @@ class Ledger extends BaseController
         $publicId = trim((string) ($post['public_id'] ?? ''));
         $fields   = array_map(static fn (string $field): string => self::ENTRY_REFERENCES[$field] ?? $field, OtternovaLedgerMasterModel::FORM_FIELDS);
 
+        $with     = '' === $publicId ? trim((string) ($post['with_entry_public_id'] ?? '')) : '';
+
         [$code, $body] = $this->callApi('v1/staff/ledger/entry/update', ['public_id' => '' === $publicId ? null : $publicId]
+            + ('' === $with ? [] : ['with_entry_public_id' => $with])
             + array_intersect_key($post, array_flip($fields)));
         if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
             return $this->saveFailed($code, $body, 'Could not save the ledger entry. Please try again.');
@@ -382,12 +452,72 @@ class Ledger extends BaseController
         }
 
         $fields = (new $record['model']())->getConfiguration();
+        if ('entities' === $kind) {
+            $fields['entity_name']['help']        = 'The registered name, such as OtterNova Co., Ltd.';
+            $fields['legal_form']['help']         = 'Such as Sole proprietorship or Co., Ltd.';
+            $fields['country_code']               = ['type' => 'select', 'options' => listCountries()] + $fields['country_code'];
+            $fields['timezone']                   = ['type' => 'select', 'options' => array_combine(timezone_identifiers_list(), timezone_identifiers_list())] + $fields['timezone'];
+            $fields['timezone']['help']           = 'The days of the reports are this timezone\'s days';
+            $fields['base_currency_code']['help'] = 'Every report is in it. It cannot change once the entity has entries';
+            $fields['fiscal_year_start_month']['help'] = 'Can be changed later; the reports follow it when they are run';
+            $fields['closed_on']['help']          = 'When another entity took over, if it did';
+        }
         if ('accounts' === $kind) {
             $fields['currency_code'] += ['maxlength' => 3, 'help' => 'The ISO 4217 code, such as THB or USD'];
-            $fields['account_class']['help'] = 'For the balance sheet later; may stay empty for now';
+            $fields['account_class']['help'] = 'Where it goes on the financial statements: assets, liabilities and equity on the balance sheet, revenue and expenses on the profit and loss';
+            $fields['entity_id'] = ['name' => 'entity_public_id', 'rules' => 'required', 'options' => $this->entityOptions(),
+                'help' => 'Whose books the account is in; it stays there once it has entries'] + $fields['entity_id'];
         }
         if ('categories' === $kind) {
             $fields['category_code'] += ['maxlength' => 3, 'help' => '3 letters or digits, such as INF'];
+        }
+        if ('tax-codes' === $kind) {
+            $accounts = [];
+            foreach ($this->lookup('accounts') as $row) {
+                $accounts[$row['public_id']] = $row['account_name'] . (null === ($row['entity_name'] ?? null) ? '' : ' (' . $row['entity_name'] . ')');
+            }
+            $fields['entity_id']  = ['name' => 'entity_public_id', 'rules' => 'required', 'options' => $this->entityOptions()] + $fields['entity_id'];
+            $fields['account_id'] = ['name' => 'account_public_id', 'rules' => '', 'options' => $accounts,
+                'help' => 'The account the tax goes into or out of, such as Output VAT payable; none for a 0% code, which goes on the sale or purchase itself'] + $fields['account_id'];
+            $fields['tax_code'] += ['maxlength' => 16, 'help' => 'Such as VAT7 or WHT3'];
+            $fields['tax_kind']['help'] = 'Output VAT on sales, input VAT on purchases; withholding tax deducted from a payee, or by a customer';
+            $fields['rate']['help']     = 'Percent. It cannot change once the code is on an entry: end it the day before and add a new code';
+        }
+        if ('posting-rules' === $kind) {
+            $accounts = [];
+            foreach ($this->lookup('accounts') as $row) {
+                $accounts[$row['public_id']] = $row['account_name'] . (null === ($row['entity_name'] ?? null) ? '' : ' (' . $row['entity_name'] . ')');
+            }
+            $codes = [];
+            foreach ($this->lookup('tax-codes') as $row) {
+                if ('WS' === $row['tax_kind']) {
+                    $codes[$row['public_id']] = $row['tax_code'] . ' · ' . $row['tax_name'] . ' (' . $row['entity_name'] . ')';
+                }
+            }
+            $help = [
+                'receivable_account_id'       => 'Debited when an invoice is issued, credited when it is paid or voided',
+                'deferred_revenue_account_id' => 'Credited when an invoice is issued; its revenue moves out month by month as the service is given',
+                'revenue_account_id'          => 'Credited with each month\'s share of a paid period, by days',
+                'cash_account_id'             => 'Debited with what the business paid',
+                'wht_receivable_account_id'   => 'Debited with the tax the business withheld; must be the withholding tax code\'s account',
+            ];
+            foreach (OtternovaLedgerPostingRuleModel::ACCOUNT_FIELDS as $column) {
+                $required        = 'wht_receivable_account_id' !== $column;
+                $fields[$column] = ['name' => $record['references'][$column], 'rules' => $required ? 'required' : '', 'options' => $accounts, 'help' => $help[$column]] + $fields[$column];
+            }
+            $fields['entity_id']       = ['name' => 'entity_public_id', 'rules' => 'required', 'options' => $this->entityOptions()] + $fields['entity_id'];
+            $fields['wht_tax_code_id'] = ['name' => 'wht_tax_code_public_id', 'rules' => '', 'options' => $codes, 'help' => 'A withholding tax suffered (WS) code of the entity'] + $fields['wht_tax_code_id'];
+            $fields['category_id']     = ['name' => 'category_public_id', 'rules' => 'required', 'options' => $this->lookups()['categories']] + $fields['category_id'];
+            $fields['country_code']    = ['type' => 'select', 'options' => listCountries(), 'help' => 'The country of the businesses whose invoices this rule posts'] + $fields['country_code'];
+            $fields['effective_from']['help'] = 'Invoices made before this day are never posted: set it after the last month entered by hand, so nothing counts twice';
+        }
+        if ('counterparties' === $kind) {
+            $fields['tax_id']['help']     = 'For the VAT and withholding tax reports';
+            $fields['tax_branch']['help'] = 'The branch on their tax invoices, such as 00000 for the head office';
+        }
+        if ('entities' === $kind) {
+            $fields['vat_threshold_amount']['help'] = 'Revenue in a year from which the entity must register for VAT, in the base currency (THB 1,800,000 in Thailand); empty for none';
+            $fields['vat_registered_on']['help']    = 'Empty until the entity registers for VAT';
         }
         $data = [
             'page_title'  => 'view' === $mode ? $values[$record['name']] : 'New ' . $record['one'],
@@ -426,8 +556,10 @@ class Ledger extends BaseController
         $post     = (array) $this->request->getPost();
         $publicId = trim((string) ($post['public_id'] ?? ''));
 
+        $fields   = array_map(static fn (string $field): string => $record['references'][$field] ?? $field, $record['model']::FORM_FIELDS);
+
         [$code, $body] = $this->callApi('v1/staff/ledger/' . $record['endpoint'] . '/update', ['public_id' => '' === $publicId ? null : $publicId]
-            + array_intersect_key($post, array_flip($record['model']::FORM_FIELDS)));
+            + array_intersect_key($post, array_flip($fields)));
         if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
             return $this->saveFailed($code, $body, 'Could not save the ' . strtolower($record['one']) . '. Please try again.');
         }
@@ -476,6 +608,7 @@ class Ledger extends BaseController
                 $column('counterparty_name', $labels('counterparty_id')),
                 $column('paid', 'Paid', false, 'text-end text-nowrap'),
                 $column('billed', 'Billed', false, 'text-end text-nowrap'),
+                $column('base', 'Base', false, 'text-end text-nowrap'),
                 ['type' => 'boolean', 'labels' => ['true' => 'Yes', 'false' => 'No']] + $column('has_receipt', 'Receipt'),
             ],
             'filters'     => [
@@ -498,9 +631,32 @@ class Ledger extends BaseController
      */
     private function recordsListConfig(string $kind): array
     {
-        $record = self::RECORDS[$kind];
-        $model  = new $record['model']();
-        $fields = $model->getConfiguration();
+        $record  = self::RECORDS[$kind];
+        $model   = new $record['model']();
+        $fields  = $model->getConfiguration();
+        $filters = $model::toFilters($fields, $record['filters']);
+        if ('accounts' === $kind) {
+            // the API sends the entity by its public_id and name
+            $fields['entity_id'] = ['name' => 'entity_name', 'db' => 'entity_name'] + $fields['entity_id'];
+            array_unshift($filters, ['name' => 'entity_public_id', 'type' => 'select', 'label' => $fields['entity_id']['label'], 'column' => 'entity_public_id', 'options' => $this->entityOptions()]);
+        }
+        if ('entities' === $kind) {
+            unset($fields['timezone'], $fields['tax_id'], $fields['vat_threshold_amount'], $fields['vat_registered_on']);
+        }
+        if ('posting-rules' === $kind) {
+            $fields = [
+                'entity_id' => ['name' => 'entity_name', 'db' => 'entity_name'] + $fields['entity_id'],
+                'country_code' => $fields['country_code'], 'effective_from' => $fields['effective_from'], 'effective_to' => $fields['effective_to'],
+                'receivable_account_id' => ['name' => 'receivable_account_name', 'db' => 'receivable_account_name'] + $fields['receivable_account_id'],
+                'revenue_account_id' => ['name' => 'revenue_account_name', 'db' => 'revenue_account_name'] + $fields['revenue_account_id'],
+                'cash_account_id' => ['name' => 'cash_account_name', 'db' => 'cash_account_name'] + $fields['cash_account_id'],
+            ];
+        }
+        if ('tax-codes' === $kind) {
+            $fields['entity_id']  = ['name' => 'entity_name', 'db' => 'entity_name'] + $fields['entity_id'];
+            $fields['account_id'] = ['name' => 'account_name', 'db' => 'account_name'] + $fields['account_id'];
+            array_unshift($filters, ['name' => 'entity_public_id', 'type' => 'select', 'label' => $fields['entity_id']['label'], 'column' => 'entity_public_id', 'options' => $this->entityOptions()]);
+        }
         return [
             'table_id'    => 'ledger' . ucfirst($kind) . 'Table',
             'title'       => $record['title'],
@@ -513,7 +669,7 @@ class Ledger extends BaseController
             ],
             'labels'      => ['add' => 'Add ' . $record['one']],
             'columns'     => $model::toColumns($fields),
-            'filters'     => $model::toFilters($fields, $record['filters']),
+            'filters'     => $filters,
             'order'       => [[$record['name'], 'asc']],
             'page_length' => 25,
         ];
@@ -532,6 +688,10 @@ class Ledger extends BaseController
         $fields['from_account_id']['options'] = $lookups['accounts'];
         $fields['to_account_id']['options']   = $lookups['accounts'];
         $fields['counterparty_id']['options'] = $lookups['counterparties'];
+        $fields['tax_code_id']['options']     = $lookups['tax_codes'];
+        $fields['tax_code_id']['help']        = 'When this row is a tax, such as the VAT of a bill: one of its accounts is then the code\'s tax account. A 0% code goes on the sale or purchase itself';
+        $fields['tax_base_amount']['help']    = 'What the tax was worked out on, in the entity\'s base currency, such as the bill before VAT';
+        $fields['tax_base_amount']['min']     = 0;
         // these are sent and taken by the public_id of the record, so the model's id rules do not apply
         foreach (self::ENTRY_REFERENCES as $column => $name) {
             $fields[$column]['name']  = $name;
@@ -547,6 +707,8 @@ class Ledger extends BaseController
         foreach (['transaction_amount', 'billed_amount'] as $name) {
             $fields[$name]['min'] = 0;
         }
+        $fields['base_rate']['min']  = 0;
+        $fields['base_rate']['help'] = 'How much of the entity\'s base currency one unit of the paid currency bought. Only used when neither currency is the base currency; leave it empty to use the day\'s rate (European Central Bank), or clear it to fetch it again after changing the date or currency';
 
         $heading = static fn (string $label): array => ['type' => 'heading', 'label' => $label];
         $out     = [
@@ -556,7 +718,26 @@ class Ledger extends BaseController
             $fields['from_account_id'], $fields['to_account_id'], $fields['counterparty_id'],
             $heading('Amounts'),
             $fields['transaction_currency_code'], $fields['transaction_amount'], $fields['billed_currency_code'], $fields['billed_amount'],
+            $fields['base_rate'],
+            $heading('Tax'),
+            $fields['tax_code_id'], $fields['tax_base_amount'],
         ];
+        if ('' !== (string) ($values['with_entry_public_id'] ?? '')) {
+            $out[] = ['name' => 'with_entry_public_id', 'type' => 'hidden', 'show_in' => ['create'], 'rules' => '', 'optional' => true];
+            $out[] = ['type' => 'html', 'show_in' => ['create'], 'html' => '<div class="alert alert-info small">This line goes with entry <a href="'
+                . esc(base_url('admin/ledger/entries/edit/' . rawurlencode($values['with_entry_public_id'])), 'attr') . '">' . esc($values['with_entry_public_id'])
+                . '</a>, in the same transaction. For its VAT, choose the tax account as the To or From account, the tax code, and the amount before VAT as the taxable amount.</div>'];
+        }
+        if ([] !== $values && isset($values['public_id'])) {
+            $out[] = ['show_in' => ['view']] + $heading('Transaction');
+            $out[] = ['type' => 'html', 'show_in' => ['view'], 'html' => $this->journalHtml($values)];
+        }
+        if ([] !== $values) {
+            $base  = self::formatAmount($values['base_currency_code'] ?? null, $values['base_amount'] ?? null);
+            $out[] = ['type' => 'html', 'show_in' => ['view'], 'html' => '<div class="row mb-3"><div class="col-sm-4 text-sm-end">Base amount</div><div class="col-sm-8">'
+                . ('' === $base ? '<span class="text-secondary">None yet: save the entry with a rate</span>' : esc($base))
+                . ' <span class="text-secondary">' . esc((string) ($values['entity_name'] ?? '')) . '</span></div></div>'];
+        }
         if ([] !== $values) {
             $entered = esc((string) ($values['created_by_name'] ?? '')) . ' ' . localTimeTag($values['created_at'] ?? null);
             $out[]   = ['show_in' => ['view']] + $heading('Record');
@@ -564,6 +745,32 @@ class Ledger extends BaseController
                 . '<div class="col-sm-8">' . trim($entered) . '</div></div>'];
         }
         return $out;
+    }
+
+    /**
+     * The other rows of the entry's transaction, and the link that adds one
+     * @param array $entry
+     * @return string
+     */
+    private function journalHtml(array $entry): string
+    {
+        $add   = null !== ($entry['source_key'] ?? null)
+            ? '<div class="alert alert-info small mb-0">Posted from the subscription billing, so it cannot change here: change the invoice instead.</div>'
+            : '<a class="btn btn-sm btn-outline-primary" href="' . esc(base_url('admin/ledger/entries/create') . '?with=' . rawurlencode($entry['public_id']), 'attr') . '">'
+            . '<i class="bi bi-plus-lg"></i> Add a line, such as its VAT or withholding tax</a>';
+        $lines = '';
+        if (null !== ($entry['journal_id'] ?? null)) {
+            [$code, $body] = $this->callApi('v1/staff/ledger/entries', ['start' => 0, 'length' => 50, 'filters' => ['journal_id' => $entry['journal_id']]]);
+            foreach (200 === $code ? (array) ($body['data']['rows'] ?? []) : [] as $row) {
+                $current = $row['public_id'] === $entry['public_id'];
+                $lines  .= '<li>' . ($current ? '<strong>' : '<a href="' . esc(base_url('admin/ledger/entries/edit/' . rawurlencode($row['public_id'])), 'attr') . '">')
+                    . esc($row['from_account_name'] . ' → ' . $row['to_account_name']) . ($current ? '</strong>' : '</a>')
+                    . ' <span class="text-secondary">' . esc(self::formatAmount($row['transaction_currency_code'], $row['transaction_amount']))
+                    . (null === ($row['tax_code'] ?? null) ? '' : ' · ' . esc($row['tax_code'])) . '</span></li>';
+            }
+        }
+        return '<div class="row mb-3"><div class="col-sm-4 text-sm-end">Rows</div><div class="col-sm-8">'
+            . ('' === $lines ? '<p class="text-secondary mb-2">Only this one</p>' : '<ul class="mb-2">' . $lines . '</ul>') . $add . '</div></div>';
     }
 
     /**
@@ -608,7 +815,8 @@ class Ledger extends BaseController
         $out = [];
         foreach ($this->lookup('accounts') as $row) {
             $type = lang('OtternovaLedgerAccount.enum.account_type.' . $row['account_type']);
-            $out['accounts'][$row['public_id']] = $row['account_name'] . ' (' . $type . ', ' . $row['currency_code'] . ')';
+            $out['accounts'][$row['public_id']] = $row['account_name'] . ' (' . $type . ', ' . $row['currency_code']
+                . (null === ($row['entity_name'] ?? null) ? '' : ', ' . $row['entity_name']) . ')';
         }
         foreach ($this->lookup('categories') as $row) {
             $out['categories'][$row['public_id']] = $row['category_name'] . ' (' . $row['category_code'] . ')';
@@ -616,11 +824,23 @@ class Ledger extends BaseController
         foreach ($this->lookup('counterparties') as $row) {
             $out['counterparties'][$row['public_id']] = $row['counterparty_name'];
         }
-        return $out + ['accounts' => [], 'categories' => [], 'counterparties' => []];
+        foreach ($this->lookup('tax-codes') as $row) {
+            $out['tax_codes'][$row['public_id']] = $row['tax_code'] . ' · ' . $row['tax_name'] . ' (' . rtrim(rtrim((string) $row['rate'], '0'), '.') . '%, ' . $row['entity_name'] . ')';
+        }
+        return $out + ['accounts' => [], 'categories' => [], 'counterparties' => [], 'tax_codes' => []];
     }
 
     /**
-     * Every account, category or counterparty, from LINK_INTERNAL_API v1/staff/ledger/{kind}
+     * The entities as public_id => name, for the dropdowns
+     * @return array<string, string>
+     */
+    private function entityOptions(): array
+    {
+        return array_column($this->lookup('entities'), 'entity_name', 'public_id');
+    }
+
+    /**
+     * Every entity, account, category or counterparty, from LINK_INTERNAL_API v1/staff/ledger/{kind}
      * @param string $kind A key of RECORDS
      * @return list<array>
      * @throws RuntimeException When the API call fails, with the message to show
@@ -700,6 +920,19 @@ class Ledger extends BaseController
         }
         [$whole, $fraction] = explode('.', $amount . '.');
         return trim($currency . ' ' . number_format((int) $whole) . '.' . str_pad($fraction, 2, '0'));
+    }
+
+    /**
+     * A rate from the API without the zeros DECIMAL(20,10) pads it with: "36.5"
+     * @param string|int|float|null $rate
+     * @return string
+     */
+    private static function trimRate(string|int|float|null $rate): string
+    {
+        if (null === $rate || '' === (string) $rate) {
+            return '';
+        }
+        return str_contains((string) $rate, '.') ? rtrim(rtrim((string) $rate, '0'), '.') : (string) $rate;
     }
 
     /**

@@ -221,8 +221,13 @@
             <!-- FINANCE -->
             <?php if (inDepartment(LEDGER_DEPARTMENTS)) : // the Executive Office and Finance only; see App\Filters\DepartmentFilter ?>
             <li class="nav-heading"><span>Finance</span></li>
+            <li class="nav-item"><a class="nav-link <?= ('ledger-reports' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/ledger/reports') ?>"><span class="nav-icon"><i class="bi bi-file-earmark-bar-graph"></i></span><span class="nav-text">Financial Reports</span></a></li>
+            <li class="nav-item"><a class="nav-link <?= ('ledger-periods' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/ledger/periods') ?>"><span class="nav-icon"><i class="bi bi-lock"></i></span><span class="nav-text">Closing the Books</span></a></li>
             <li class="nav-item"><a class="nav-link <?= ('ledger-entries' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/ledger') ?>"><span class="nav-icon"><i class="bi bi-list-columns"></i></span><span class="nav-text">Ledger</span></a></li>
+            <li class="nav-item"><a class="nav-link <?= ('ledger-entities' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/ledger/entities') ?>"><span class="nav-icon"><i class="bi bi-briefcase"></i></span><span class="nav-text">Entities</span></a></li>
             <li class="nav-item"><a class="nav-link <?= ('ledger-accounts' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/ledger/accounts') ?>"><span class="nav-icon"><i class="bi bi-bank"></i></span><span class="nav-text">Ledger Accounts</span></a></li>
+            <li class="nav-item"><a class="nav-link <?= ('ledger-tax-codes' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/ledger/tax-codes') ?>"><span class="nav-icon"><i class="bi bi-percent"></i></span><span class="nav-text">Tax Codes</span></a></li>
+            <li class="nav-item"><a class="nav-link <?= ('ledger-posting-rules' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/ledger/posting-rules') ?>"><span class="nav-icon"><i class="bi bi-arrow-left-right"></i></span><span class="nav-text">Posting Rules</span></a></li>
             <li class="nav-item"><a class="nav-link <?= ('ledger-categories' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/ledger/categories') ?>"><span class="nav-icon"><i class="bi bi-tags"></i></span><span class="nav-text">Categories</span></a></li>
             <li class="nav-item"><a class="nav-link <?= ('ledger-counterparties' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/ledger/counterparties') ?>"><span class="nav-icon"><i class="bi bi-building"></i></span><span class="nav-text">Counterparties</span></a></li>
             <?php endif; ?>

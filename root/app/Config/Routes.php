@@ -147,10 +147,21 @@ $routes->group('admin/ledger', ['filter' => ['auth', 'department:EXE,FIN']], sta
     $routes->post('entries/receipt-upload', 'Ledger::receiptUpload');
     $routes->post('entries/receipt-delete', 'Ledger::receiptDelete');
     $routes->get('entries/receipt/(:segment)', 'Ledger::receipt/$1');
-    // every record is in the URL by its public_id; accounts, categories and counterparties share one set of pages
-    $routes->get('(accounts|categories|counterparties)', 'Ledger::records/$1');
-    $routes->post('(accounts|categories|counterparties)', 'Ledger::recordsList/$1');
-    $routes->get('(accounts|categories|counterparties)/create', 'Ledger::recordsEdit/$1/create');
-    $routes->get('(accounts|categories|counterparties)/edit/(:segment)', 'Ledger::recordsEdit/$1/$2');
-    $routes->post('(accounts|categories|counterparties)/save', 'Ledger::recordsEditPost/$1');
+    // every record is in the URL by its public_id; entities, accounts, categories and counterparties share one set of pages
+    $routes->get('(entities|accounts|tax-codes|posting-rules|categories|counterparties)', 'Ledger::records/$1');
+    $routes->post('(entities|accounts|tax-codes|posting-rules|categories|counterparties)', 'Ledger::recordsList/$1');
+    $routes->get('(entities|accounts|tax-codes|posting-rules|categories|counterparties)/create', 'Ledger::recordsEdit/$1/create');
+    $routes->get('(entities|accounts|tax-codes|posting-rules|categories|counterparties)/edit/(:segment)', 'Ledger::recordsEdit/$1/$2');
+    $routes->post('(entities|accounts|tax-codes|posting-rules|categories|counterparties)/save', 'Ledger::recordsEditPost/$1');
+    $routes->get('reports', 'LedgerReports::index');
+    $routes->get('reports/(trial-balance|profit-loss|balance-sheet|general-ledger|vat|wht|revenue-register|expense-register)', 'LedgerReports::report/$1');
+    $routes->get('reports/(trial-balance|profit-loss|balance-sheet|general-ledger|vat|wht|revenue-register|expense-register)/csv', 'LedgerReports::csv/$1');
+    $routes->get('reports/tax-pack', 'LedgerReports::taxPack');
+    $routes->get('periods', 'LedgerReports::periods');
+    $routes->post('periods/close', 'LedgerReports::close');
+    $routes->post('periods/reopen', 'LedgerReports::reopen');
+    $routes->post('posting/sync', 'LedgerReports::syncPosting');
+    $routes->get('periods/(:segment)/(PL|PY|BS|TB|GL|VT|WT|RR|ER)', 'LedgerReports::snapshot/$1/$2');
+    $routes->get('periods/(:segment)/(PL|PY|BS|TB|GL|VT|WT|RR|ER)/csv', 'LedgerReports::snapshotCsv/$1/$2');
+    $routes->get('periods/(:segment)/tax-pack', 'LedgerReports::snapshotTaxPack/$1');
 });
