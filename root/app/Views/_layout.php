@@ -211,6 +211,12 @@
             <li class="nav-item"><a class="nav-link <?= ('clients-withholding' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/clients/withholding') ?>"><span class="nav-icon"><i class="bi bi-percent"></i></span><span class="nav-text">Withholding Tax</span></a></li>
             <?php endif; ?>
             <li class="nav-item"><a class="nav-link <?= ('clients-businesses' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/clients/businesses') ?>"><span class="nav-icon"><i class="bi bi-suitcase-lg"></i></span><span class="nav-text">Businesses</span></a></li>
+            <!-- LEGAL -->
+            <?php if (inDepartment(LEGAL_DEPARTMENTS)) : // the Executive Office and Client Experience only; see App\Filters\DepartmentFilter ?>
+            <li class="nav-heading"><span>Legal</span></li>
+            <li class="nav-item"><a class="nav-link <?= ('legal-versions' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/legal/versions') ?>"><span class="nav-icon"><i class="bi bi-file-earmark-text"></i></span><span class="nav-text">Terms &amp; Privacy</span></a></li>
+            <li class="nav-item"><a class="nav-link <?= ('legal-acceptances' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/legal/acceptances') ?>"><span class="nav-icon"><i class="bi bi-check2-square"></i></span><span class="nav-text">Acceptances</span></a></li>
+            <?php endif; ?>
             <!-- INBOX -->
             <li class="nav-heading"><span>Inbox</span></li>
             <li class="nav-item"><a class="nav-link <?= ('inbox' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/inbox') ?>"><span class="nav-icon"><i class="bi bi-inbox"></i></span><span class="nav-text">Inbox</span></a></li>

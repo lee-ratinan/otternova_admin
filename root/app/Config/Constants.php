@@ -102,3 +102,6 @@ define('LOG_DEPARTMENTS', ['EXE', 'ENG']);
 define('ERROR_LOG_DEPARTMENTS', ['EXE', 'ENG']);
 // ... and that may read the email log, to answer whether a customer got an email (the API checks the same list)
 define('EMAIL_LOG_DEPARTMENTS', ['EXE', 'CXD', 'ENG']);
+// ... and that may read the Terms of Service and Privacy Policy versions and who accepted them (the API checks the
+// same list); only the Executive Office (EXECUTIVE_DEPARTMENT) may publish or cancel a version
+define('LEGAL_DEPARTMENTS', ['EXE', 'CXD']);

@@ -116,6 +116,22 @@ $routes->group('admin', ['filter' => ['auth', 'department:EXE,FIN']], static fun
     $routes->get('clients/withholding/certificate/(:segment)', 'ClientBilling::certificateFile/$1');
 });
 
+// The Terms of Service and Privacy Policy versions and who accepted them: the Executive Office and Client Experience
+// (LEGAL_DEPARTMENTS); publishing and cancelling a version: the Executive Office only. The API checks the same.
+// A version is in the URL by its public_id; see App\Controllers\LegalDocuments
+$routes->group('admin/legal', ['filter' => ['auth', 'department:EXE']], static function($routes) {
+    $routes->get('versions/create', 'LegalDocuments::create');
+    $routes->post('versions/save', 'LegalDocuments::save');
+    $routes->post('versions/cancel', 'LegalDocuments::cancel');
+});
+$routes->group('admin/legal', ['filter' => ['auth', 'department:EXE,CXD']], static function($routes) {
+    $routes->get('versions', 'LegalDocuments::versions');
+    $routes->post('versions', 'LegalDocuments::versionsList');
+    $routes->get('versions/view/(:segment)', 'LegalDocuments::view/$1');
+    $routes->get('acceptances', 'LegalDocuments::acceptances');
+    $routes->post('acceptances', 'LegalDocuments::acceptancesList');
+});
+
 // The activity log: staff of the Executive Office and Engineering only (LOG_DEPARTMENTS; the API checks the same)
 $routes->group('admin/logs', ['filter' => ['auth', 'department:EXE,ENG']], static function($routes) {
     // ?table=plan_master&id=12&search=PLUS links to one record's history; see App\Controllers\Logs
