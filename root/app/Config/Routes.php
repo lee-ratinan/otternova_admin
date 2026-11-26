@@ -61,6 +61,9 @@ $routes->group('admin', ['filter' => 'auth'], static function($routes) {
     $routes->get('clients/businesses', 'ClientBusinesses::businesses');
     $routes->post('clients/businesses', 'ClientBusinesses::businessesList');
     $routes->get('clients/businesses/view/(:segment)', 'ClientBusinesses::businessView/$1');
+    // its products and services, by their public_id
+    $routes->post('clients/businesses/view/(:segment)/artifacts', 'ClientBusinesses::artifactsList/$1');
+    $routes->get('clients/businesses/view/(:segment)/artifacts/(:segment)', 'ClientBusinesses::artifactView/$1/$2');
     // Settings Controller
     $routes->get('settings/languages', 'Settings::languages'); // complete
     $routes->get('settings/countries', 'Settings::countries'); // complete

@@ -1,15 +1,19 @@
 <?php
 /**
- * One business's business_master details; see App\Controllers\ClientBusinesses::businessView()
- * @var array $business From LINK_INTERNAL_API v1/staff/businesses/business; tax_id is null for staff outside the
- *                      Executive Office and Finance
+ * One business's business_master details and everything under it, in tabs: its staff, its stores, and its products
+ * and services; see App\Controllers\ClientBusinesses::businessView()
+ * @var array $business       From LINK_INTERNAL_API v1/staff/businesses/business; tax_id is null for staff outside the
+ *                            Executive Office and Finance
+ * @var array $staff          {rows, error}: rows from v1/staff/businesses/staff
+ * @var array $stores         {rows, error}: rows from v1/staff/businesses/stores
+ * @var array $artifactConfig Table Builder configuration of the products and services
  */
 
 use App\Controllers\ClientBilling as B;
 use App\Controllers\ClientBusinesses as CB;
 
 $this->extend('_layout');
-helper(['list', 'auth']);
+helper(['list', 'auth', 'table']);
 $b        = $business;
 $currency = (string) ($b['currency_code'] ?? '');
 $none     = '<span class="text-muted">&mdash;</span>';
@@ -134,26 +138,187 @@ if ([] !== $translations) {
         + array_slice($sections['Business'], 1, null, true);
 }
 ?>
+<?php
+$staffRows = (array) ($staff['rows'] ?? []);
+$storeRows = (array) ($stores['rows'] ?? []);
+$days      = [0 => 'Sunday', 1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday'];
+$names     = static fn (array $list): string => [] === $list ? '<span class="text-muted">&mdash;</span>' : implode('<br>', array_map(static fn ($n): string => esc((string) $n), $list));
+$loadError = static fn (?string $error): string => null === $error ? ''
+    : '<div class="alert alert-warning mb-0"><i class="bi bi-exclamation-triangle me-1"></i>' . esc($error) . '</div>';
+$tabs = [
+    'overview' => ['Overview', 'bi-info-circle', null],
+    'staff'    => ['Staff', 'bi-people', count($staffRows)],
+    'stores'   => ['Stores', 'bi-shop', count($storeRows)],
+    'products' => ['Products & Services', 'bi-box-seam', null],
+];
+?>
 <?= $this->section('content') ?>
     <section class="section">
-        <div class="row g-4">
-            <?php foreach ($sections as $title => $rows): ?>
-                <div class="col-12 col-xl-6">
-                    <div class="card h-100">
-                        <div class="card-header">
-                            <h5 class="card-title"><?= esc($title) ?></h5>
-                        </div>
-                        <div class="card-body">
-                            <?php foreach ($rows as $label => $html): ?>
-                                <div class="row mb-3">
-                                    <div class="col-sm-4 text-sm-end text-secondary"><?= esc($label) ?></div>
-                                    <div class="col-sm-8"><?= $html ?></div>
+        <ul class="nav nav-tabs mb-4" id="businessTabs" role="tablist">
+            <?php foreach ($tabs as $id => [$label, $icon, $count]): ?>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link<?= 'overview' === $id ? ' active' : '' ?>" id="tab-<?= $id ?>" data-bs-toggle="tab" data-bs-target="#pane-<?= $id ?>"
+                            data-tab="<?= $id ?>" type="button" role="tab" aria-controls="pane-<?= $id ?>" aria-selected="<?= 'overview' === $id ? 'true' : 'false' ?>">
+                        <i class="bi <?= $icon ?> me-1"></i><?= esc($label) ?>
+                        <?php if (null !== $count): ?><span class="badge bg-light text-dark border ms-1"><?= $count ?></span><?php endif ?>
+                    </button>
+                </li>
+            <?php endforeach ?>
+        </ul>
+
+        <div class="tab-content">
+            <div class="tab-pane fade show active" id="pane-overview" role="tabpanel" aria-labelledby="tab-overview">
+                <div class="row g-4">
+                    <?php foreach ($sections as $title => $rows): ?>
+                        <div class="col-12 col-xl-6">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <h5 class="card-title"><?= esc($title) ?></h5>
                                 </div>
-                            <?php endforeach ?>
+                                <div class="card-body">
+                                    <?php foreach ($rows as $label => $html): ?>
+                                        <div class="row mb-3">
+                                            <div class="col-sm-4 text-sm-end text-secondary"><?= esc($label) ?></div>
+                                            <div class="col-sm-8"><?= $html ?></div>
+                                        </div>
+                                    <?php endforeach ?>
+                                </div>
+                            </div>
                         </div>
+                    <?php endforeach ?>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="pane-staff" role="tabpanel" aria-labelledby="tab-staff">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title">Staff</h5>
+                        <p class="text-secondary mb-0">Everyone ever linked to the business, with the stores they work in now and the services they give</p>
+                    </div>
+                    <div class="card-body">
+                        <?= $loadError($staff['error'] ?? null) ?>
+                        <?php if (null === ($staff['error'] ?? null) && [] === $staffRows): ?>
+                            <p class="text-secondary mb-0">No one is linked to this business.</p>
+                        <?php elseif ([] !== $staffRows): ?>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle">
+                                    <thead>
+                                    <tr>
+                                        <th>Name</th><th>Role</th><th>Status</th><th>Account</th><th>Started</th><th>Left</th><th>Stores</th><th>Services</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <?php foreach ($staffRows as $person): ?>
+                                        <tr>
+                                            <td>
+                                                <div class="fw-semibold"><?= esc((string) ($person['full_name'] ?? '')) ?></div>
+                                                <?php if (! empty($person['email_address'])): ?>
+                                                    <a class="small" href="mailto:<?= esc((string) $person['email_address'], 'attr') ?>"><?= esc((string) $person['email_address']) ?></a>
+                                                <?php endif ?>
+                                            </td>
+                                            <td><?= B::badge(CB::STAFF_ROLES, $person['client_role'] ?? null) ?></td>
+                                            <td><?= B::badge(CB::STAFF_STATUSES, $person['client_status'] ?? null) ?></td>
+                                            <td><?= B::badge(CB::ACCOUNT_STATUSES, $person['account_status'] ?? null) ?></td>
+                                            <td><?= $text($person['start_date'] ?? null) ?></td>
+                                            <td><?= $text($person['termination_date'] ?? null) ?></td>
+                                            <td><?= $names((array) ($person['stores'] ?? [])) ?></td>
+                                            <td><?= $names((array) ($person['services'] ?? [])) ?></td>
+                                        </tr>
+                                    <?php endforeach ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php endif ?>
                     </div>
                 </div>
-            <?php endforeach ?>
+            </div>
+
+            <div class="tab-pane fade" id="pane-stores" role="tabpanel" aria-labelledby="tab-stores">
+                <?= $loadError($stores['error'] ?? null) ?>
+                <?php if (null === ($stores['error'] ?? null) && [] === $storeRows): ?>
+                    <div class="card"><div class="card-body"><p class="text-secondary mb-0">The business has no stores.</p></div></div>
+                <?php endif ?>
+                <div class="row g-4">
+                    <?php foreach ($storeRows as $store):
+                        $storeAddress = array_filter([
+                            $store['store_address_line_1'] ?? null,
+                            $store['store_address_line_2'] ?? null,
+                            trim(($store['store_city'] ?? '') . ' ' . ($store['store_postal_code'] ?? '')),
+                            $subdivisions[$store['store_subdivision_code'] ?? ''] ?? ($store['store_subdivision_code'] ?? null),
+                        ], static fn ($line): bool => null !== $line && '' !== trim((string) $line));
+                        $hours = [];
+                        foreach ((array) ($store['weekly_hours'] ?? []) as $slot) {
+                            $hours[(int) $slot['day_of_week']][] = esc($slot['open_time'] . '–' . $slot['close_time']);
+                        }
+                        ?>
+                        <div class="col-12 col-xl-6">
+                            <div class="card h-100">
+                                <div class="card-header">
+                                    <h5 class="card-title mb-0">
+                                        <?= esc((string) ($store['store_name'] ?? '')) ?>
+                                        <span class="badge <?= 'O' === ($store['store_type'] ?? '') ? 'bg-info text-dark' : 'bg-light text-dark border' ?> ms-1"><?= 'O' === ($store['store_type'] ?? '') ? 'Online' : 'Physical' ?></span>
+                                    </h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row mb-3">
+                                        <div class="col-sm-4 text-sm-end text-secondary">Timezone</div>
+                                        <div class="col-sm-8"><?= $text($store['store_timezone'] ?? null) ?></div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-sm-4 text-sm-end text-secondary">Phone Number</div>
+                                        <div class="col-sm-8"><?= $text($store['store_phone_number'] ?? null) ?></div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-sm-4 text-sm-end text-secondary">Address</div>
+                                        <div class="col-sm-8"><?= [] === $storeAddress ? $none : implode('<br>', array_map(static fn ($line): string => esc((string) $line), $storeAddress)) ?></div>
+                                    </div>
+                                    <?php if (! empty($store['google_maps_url'])): ?>
+                                        <div class="row mb-3">
+                                            <div class="col-sm-4 text-sm-end text-secondary">Map</div>
+                                            <div class="col-sm-8"><a href="<?= esc((string) $store['google_maps_url'], 'attr') ?>" target="_blank" rel="noopener noreferrer">Google Maps <i class="bi bi-box-arrow-up-right"></i></a></div>
+                                        </div>
+                                    <?php endif ?>
+                                    <div class="row mb-3">
+                                        <div class="col-sm-4 text-sm-end text-secondary">Weekly Hours</div>
+                                        <div class="col-sm-8">
+                                            <?php if ([] === $hours): ?>
+                                                <?= $none ?>
+                                            <?php else: ?>
+                                                <?php foreach ($days as $day => $dayName): ?>
+                                                    <div><span class="text-secondary d-inline-block" style="min-width: 7rem"><?= $dayName ?></span><?= isset($hours[$day]) ? implode(', ', $hours[$day]) : '<span class="text-muted">Closed</span>' ?></div>
+                                                <?php endforeach ?>
+                                            <?php endif ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    <?php endforeach ?>
+                </div>
+            </div>
+
+            <div class="tab-pane fade" id="pane-products" role="tabpanel" aria-labelledby="tab-products">
+                <?= lb_render($artifactConfig) ?>
+            </div>
         </div>
     </section>
+
+<?= lb_script($artifactConfig) ?>
+<script>
+    // the tab in the URL's hash (#staff, #stores, #products) opens first, and each tab opened is put there, so a reload
+    // or the artifact page's breadcrumb comes back to it; the table is sized when its tab first shows
+    document.addEventListener('DOMContentLoaded', function () { // Bootstrap and DataTables load after the content
+        const buttons = document.querySelectorAll('#businessTabs [data-tab]');
+        buttons.forEach(function (button) {
+            button.addEventListener('shown.bs.tab', function () {
+                history.replaceState(null, '', '#' + button.dataset.tab);
+                if ('products' === button.dataset.tab && window.DataTable) {
+                    DataTable.tables({visible: true, api: true}).columns.adjust();
+                }
+            });
+        });
+        const wanted = document.querySelector('#businessTabs [data-tab="' + location.hash.slice(1) + '"]');
+        if (wanted) bootstrap.Tab.getOrCreateInstance(wanted).show();
+    });
+</script>
 <?= $this->endSection() ?>

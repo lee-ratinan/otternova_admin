@@ -10,7 +10,8 @@ use Throwable;
 /**
  * Every business in the system, behind the auth filter: any staff member lists them, filtered by whether they are open
  * on the marketplace, their withholding, their latest subscription and their country, and opens one to see its
- * business_master details. Read through LINK_INTERNAL_API v1/staff/businesses/*, which sends the tax ID to the
+ * business_master details and everything under it: its staff, its stores, and its products and services with their
+ * variants. Read through LINK_INTERNAL_API v1/staff/businesses/*, which sends the tax ID to the
  * Executive Office and Finance only. Businesses are in the URL by their business_slug; every time is UTC.
  */
 class ClientBusinesses extends BaseController
@@ -18,6 +19,35 @@ class ClientBusinesses extends BaseController
     public const OPEN_STATUSES = [
         'Y' => ['label' => 'Open', 'class' => 'bg-success'],
         'N' => ['label' => 'Closed', 'class' => 'bg-secondary'],
+    ];
+    public const ARTIFACT_TYPES = [
+        'P' => ['label' => 'Product', 'class' => 'bg-info text-dark'],
+        'S' => ['label' => 'Service', 'class' => 'bg-primary'],
+    ];
+    public const ARTIFACT_STATUSES = [
+        'A' => ['label' => 'Active', 'class' => 'bg-success'],
+        'I' => ['label' => 'Inactive', 'class' => 'bg-secondary'],
+        'D' => ['label' => 'Discontinued', 'class' => 'bg-dark'],
+    ];
+    public const VARIANT_STATUSES = [
+        'A' => ['label' => 'On sale', 'class' => 'bg-success'],
+        'I' => ['label' => 'Off sale', 'class' => 'bg-secondary'],
+    ];
+    public const STAFF_ROLES = [
+        'O' => ['label' => 'Owner', 'class' => 'bg-primary'],
+        'M' => ['label' => 'Manager', 'class' => 'bg-info text-dark'],
+        'E' => ['label' => 'Employee', 'class' => 'bg-light text-dark border'],
+    ];
+    public const STAFF_STATUSES = [
+        'A' => ['label' => 'Active', 'class' => 'bg-success'],
+        'T' => ['label' => 'Terminated', 'class' => 'bg-secondary'],
+    ];
+    /** auth_master.account_status */
+    public const ACCOUNT_STATUSES = [
+        'A' => ['label' => 'Active', 'class' => 'bg-success'],
+        'P' => ['label' => 'Pending', 'class' => 'bg-warning text-dark'],
+        'B' => ['label' => 'Blocked', 'class' => 'bg-danger'],
+        'S' => ['label' => 'Suspended', 'class' => 'bg-secondary'],
     ];
     /** ClientBilling::SUBSCRIPTION_STATUSES, and NONE for a business that never subscribed */
     public const NO_SUBSCRIPTION = 'NONE';
@@ -90,12 +120,92 @@ class ClientBusinesses extends BaseController
                 : new RuntimeException($body['message'] ?? 'Could not load the business.');
         }
         $business = (array) ($body['data'] ?? []);
+        // a tab that cannot load says so, rather than the whole page failing
+        $tab = function (string $endpoint) use ($slug): array {
+            [$code, $body] = $this->callApi($endpoint, ['business_slug' => $slug]);
+            return $code === 200 && ($body['status'] ?? '') === 'success'
+                ? ['rows' => (array) ($body['data'] ?? []), 'error' => null]
+                : ['rows' => [], 'error' => (string) ($body['message'] ?? 'Could not load this list. Please try again.')];
+        };
 
         return view('admin_client_business', [
-            'page_title'  => (string) ($business['business_name'] ?? $slug),
+            'page_title'     => (string) ($business['business_name'] ?? $slug),
+            'slug'           => 'clients-businesses',
+            'breadcrumbs'    => [base_url('admin/clients/businesses') => 'Businesses'],
+            'business'       => $business,
+            'staff'          => $tab('v1/staff/businesses/staff'),
+            'stores'         => $tab('v1/staff/businesses/stores'),
+            'artifactConfig' => $this->artifactListConfig($slug),
+        ]);
+    }
+
+    /**
+     * One page of a business's products and services: the DataTables request forwarded to LINK_INTERNAL_API
+     * v1/staff/businesses/artifacts, which orders them by name and searches their names and their variants' SKUs
+     * @param string $slug
+     * @return ResponseInterface
+     */
+    public function artifactsList(string $slug): ResponseInterface
+    {
+        $config  = $this->artifactListConfig($slug);
+        $params  = lb_request($this->request, $config);
+        $filters = [];
+        foreach ($params['filters'] as $item) {
+            $filters[$item['def']['name']] = (string) $item['value'];
+        }
+        [$code, $body] = $this->callApi('v1/staff/businesses/artifacts', [
+            'business_slug' => $slug,
+            'start'         => $params['start'],
+            'length'        => $params['length'],
+            'search'        => $params['search'],
+            'filters'       => $filters,
+        ]);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            return $this->response->setJSON(lb_response($params['draw'], 0, 0, []) + ['error' => $body['message'] ?? 'Could not load the products and services. Please try again.']);
+        }
+
+        $rows = array_map(static function (array $row): array {
+            $row['category_name'] = (string) ($row['category_name'] ?? '');
+            return $row;
+        }, (array) ($body['data']['rows'] ?? []));
+
+        return $this->response->setJSON(lb_response(
+            $params['draw'],
+            (int) ($body['data']['records_total'] ?? 0),
+            (int) ($body['data']['records_filtered'] ?? 0),
+            lb_rows($rows, $config)
+        ));
+    }
+
+    /**
+     * One product or service of a business, with its variants, their stock and its images
+     * @param string $slug
+     * @param string $publicId
+     * @return string
+     */
+    public function artifactView(string $slug, string $publicId): string
+    {
+        [$code, $body] = $this->callApi('v1/staff/businesses/artifact', ['business_slug' => $slug, 'public_id' => $publicId]);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            throw $code === 404
+                ? PageNotFoundException::forPageNotFound($body['message'] ?? null)
+                : new RuntimeException($body['message'] ?? 'Could not load the product or service.');
+        }
+        [$bCode, $bBody] = $this->callApi('v1/staff/businesses/business', ['business_slug' => $slug]);
+        $business        = $bCode === 200 ? (array) ($bBody['data'] ?? []) : [];
+        $detail          = (array) ($body['data'] ?? []);
+        $businessUrl     = base_url('admin/clients/businesses/view/' . rawurlencode($slug));
+
+        return view('admin_client_business_artifact', [
+            'page_title'  => (string) ($detail['artifact']['artifact_name'] ?? $publicId),
             'slug'        => 'clients-businesses',
-            'breadcrumbs' => [base_url('admin/clients/businesses') => 'Businesses'],
-            'business'    => $business,
+            'breadcrumbs' => [
+                base_url('admin/clients/businesses') => 'Businesses',
+                $businessUrl                          => (string) ($business['business_name'] ?? $slug),
+                $businessUrl . '#products'            => 'Products & Services',
+            ],
+            'currency'    => (string) ($business['currency_code'] ?? ''),
+            'detail'      => $detail,
         ]);
     }
 
@@ -142,6 +252,44 @@ class ClientBusinesses extends BaseController
                 ['name' => 'wht_status', 'type' => 'select', 'label' => 'Withholding', 'options' => $labels(ClientBilling::WHT_STATUSES)],
                 ['name' => 'subscription_status', 'type' => 'select', 'label' => 'Subscription', 'options' => $labels(self::subscriptionStatuses())],
                 ['name' => 'country_code', 'type' => 'select', 'label' => 'Country', 'options' => listSupportedCountries()],
+            ],
+            'order'       => [],
+            'page_length' => 25,
+        ];
+    }
+
+    /**
+     * Table Builder configuration of a business's products and services, shared by its tab and its JSON endpoint
+     * @param string $slug
+     * @return array
+     */
+    private function artifactListConfig(string $slug): array
+    {
+        $labels = static fn (array $badges): array => array_map(static fn (array $b): string => $b['label'], $badges);
+        $base   = base_url('admin/clients/businesses/view/' . rawurlencode($slug));
+
+        return [
+            'table_id'    => 'businessArtifactTable',
+            'title'       => 'Products & Services',
+            'subtitle'    => 'Everything the business sells, by name; the search looks in the names and the variants\' SKUs',
+            'id_field'    => 'public_id',
+            'urls'        => [
+                'data' => $base . '/artifacts',
+                'edit' => $base . '/artifacts/{public_id}',
+            ],
+            'columns'     => [
+                self::column('artifact_name', 'Name', ['searchable' => true]),
+                self::column('artifact_type', 'Type', ['type' => 'badge', 'badges' => self::ARTIFACT_TYPES]),
+                self::column('category_name', 'Category'),
+                self::column('artifact_status', 'Status', ['type' => 'badge', 'badges' => self::ARTIFACT_STATUSES]),
+                self::column('variant_count', 'Variants', ['type' => 'number', 'class' => 'text-end']),
+                self::column('price_active_lowest', 'From', ['type' => 'number', 'decimals' => 2, 'class' => 'text-end']),
+                self::column('rating_average', 'Rating', ['type' => 'number', 'decimals' => 2, 'class' => 'text-end']),
+                self::column('updated_at', 'Updated', ['type' => 'datetime']),
+            ],
+            'filters'     => [
+                ['name' => 'artifact_type', 'type' => 'select', 'label' => 'Type', 'options' => $labels(self::ARTIFACT_TYPES)],
+                ['name' => 'artifact_status', 'type' => 'select', 'label' => 'Status', 'options' => $labels(self::ARTIFACT_STATUSES)],
             ],
             'order'       => [],
             'page_length' => 25,
