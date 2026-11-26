@@ -265,6 +265,9 @@ class Admin extends BaseController
             'mode'        => $mode,
             'formConfig'  => $formConfig,
             'sections'    => $sections,
+            // a staff member's pay: the Executive Office only, and not on a new account (it has no profile yet)
+            'salary'      => 'view' === $mode && AuthMasterModel::TYPE_STAFF === $type && inDepartment(EXECUTIVE_DEPARTMENT)
+                ? StaffSalaries::load($uid) : null,
         ];
         return view('admin_accounts_edit', $data);
     }

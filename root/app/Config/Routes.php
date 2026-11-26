@@ -72,6 +72,14 @@ $routes->group('admin', ['filter' => 'auth'], static function($routes) {
     $routes->match(['GET', 'POST'], 'api/currencies', 'ApiList::currencies');
 });
 
+// A staff member's salary history and bank account, on their account page: the Executive Office only (the API checks
+// the same); see App\Controllers\StaffSalaries
+$routes->group('admin/accounts/salary', ['filter' => ['auth', 'department:EXE']], static function($routes) {
+    $routes->post('add', 'StaffSalaries::add');
+    $routes->post('edit', 'StaffSalaries::edit');
+    $routes->post('pay-account', 'StaffSalaries::payAccount');
+});
+
 // The org chart, the staff's reporting lines: the Executive Office and Human Resources only (ORG_CHART_DEPARTMENTS;
 // the API checks the same); see App\Controllers\Admin::orgChart()
 $routes->group('admin', ['filter' => ['auth', 'department:EXE,HRD']], static function($routes) {

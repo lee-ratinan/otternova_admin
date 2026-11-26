@@ -50,6 +50,10 @@ $last = array_key_last($sections);
         </form>
     </section>
 
+<?php if (($salary ?? null) !== null) : ?>
+    <?= view('admin_accounts_salary', ['salary' => $salary, 'uid' => (string) ($formConfig['id'] ?? '')]) ?>
+<?php endif ?>
+
 <?php // validation on change, submit via fetch, toastr messages, view <-> edit switching, delete confirmation ?>
 <?= fb_script($cfg) ?>
 <?= $this->endSection() ?>
