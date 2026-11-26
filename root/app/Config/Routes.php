@@ -72,6 +72,12 @@ $routes->group('admin', ['filter' => 'auth'], static function($routes) {
     $routes->match(['GET', 'POST'], 'api/currencies', 'ApiList::currencies');
 });
 
+// The org chart, the staff's reporting lines: the Executive Office and Human Resources only (ORG_CHART_DEPARTMENTS;
+// the API checks the same); see App\Controllers\Admin::orgChart()
+$routes->group('admin', ['filter' => ['auth', 'department:EXE,HRD']], static function($routes) {
+    $routes->get('org-chart', 'Admin::orgChart');
+});
+
 // Plans, prices, payment methods, discounts and the businesses' subscriptions: staff of the Executive Office and Finance only (PLAN_DEPARTMENTS; the API checks the same)
 $routes->group('admin', ['filter' => ['auth', 'department:EXE,FIN']], static function($routes) {
     // plans are in the URL by plan_code, payment methods by method_code, prices and discounts by public_id

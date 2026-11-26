@@ -1088,6 +1088,85 @@ class Admin extends BaseController
     }
 
     /**
+     * The org chart: every active staff member under their line manager. Someone whose manager is not on the chart
+     * (none set, or the manager has left) starts a reporting line of their own at the top.
+     * @return string
+     */
+    public function orgChart(): string
+    {
+        [$code, $body] = $this->callApi('v1/staff/org-chart', []);
+        if ($code !== 200 || ($body['status'] ?? '') !== 'success') {
+            throw new RuntimeException($body['message'] ?? 'Could not load the org chart.');
+        }
+        $rows = (array) ($body['data']['rows'] ?? []);
+
+        return view('admin_org_chart', [
+            'page_title' => 'Org Chart',
+            'slug'       => 'org-chart',
+            'tree'       => self::orgChartTree($rows, $this->departmentNames()),
+            'count'      => count($rows),
+        ]);
+    }
+
+    /**
+     * Nest the org chart's rows under their line managers, keeping the API's order (by name) among siblings
+     * @param list<array> $rows LINK_INTERNAL_API v1/staff/org-chart rows
+     * @param array<int, array{name: string, code: string}> $departments
+     * @return list<array> nodes: uid, full_name, job_title, department, avatar, reports (nodes)
+     */
+    public static function orgChartTree(array $rows, array $departments): array
+    {
+        $byId     = [];
+        $children = [];
+        foreach ($rows as $row) {
+            $byId[(int) $row['id']] = $row;
+        }
+        $roots = [];
+        foreach ($rows as $row) {
+            $manager = isset($row['manager_staff_id']) ? (int) $row['manager_staff_id'] : 0;
+            if ($manager !== (int) $row['id'] && isset($byId[$manager])) {
+                $children[$manager][] = (int) $row['id'];
+            } else {
+                $roots[] = (int) $row['id'];
+            }
+        }
+
+        $seen  = [];
+        $build = static function (int $id) use (&$build, &$seen, $byId, $children, $departments): array {
+            $seen[$id] = true;
+            $row       = $byId[$id];
+            $reports   = [];
+            foreach ($children[$id] ?? [] as $child) {
+                if (! isset($seen[$child])) {
+                    $reports[] = $build($child);
+                }
+            }
+
+            return [
+                'uid'        => (string) $row['uid'],
+                'full_name'  => (string) $row['full_name'],
+                'job_title'  => (string) ($row['job_title'] ?? ''),
+                'department' => $departments[(int) ($row['department_id'] ?? 0)]['name'] ?? '',
+                'avatar'     => avatarUrl($row['avatar_path'] ?? null),
+                'reports'    => $reports,
+            ];
+        };
+
+        $tree = [];
+        foreach ($roots as $id) {
+            $tree[] = $build($id);
+        }
+        // a loop in the reporting lines leaves its members unreached from any top: they start at the top too
+        foreach (array_keys($byId) as $id) {
+            if (! isset($seen[$id])) {
+                $tree[] = $build($id);
+            }
+        }
+
+        return $tree;
+    }
+
+    /**
      * LINK_INTERNAL_API v1/staff/staff-members: every staff member, by name, with avatar_path (picture or initials avatar)
      * @return list<array>
      */

@@ -193,6 +193,9 @@
             <?php if (inDepartment(EXECUTIVE_DEPARTMENT)) : ?>
             <li class="nav-item"><a class="nav-link <?= ('accounts' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/accounts') ?>"><span class="nav-icon"><i class="bi bi-people"></i></span><span class="nav-text">Manage Accounts</span></a></li>
             <?php endif; ?>
+            <?php if (inDepartment(ORG_CHART_DEPARTMENTS)) : // the Executive Office and Human Resources only; see App\Filters\DepartmentFilter ?>
+            <li class="nav-item"><a class="nav-link <?= ('org-chart' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/org-chart') ?>"><span class="nav-icon"><i class="bi bi-diagram-3"></i></span><span class="nav-text">Org Chart</span></a></li>
+            <?php endif; ?>
             <li class="nav-item"><a class="nav-link <?= ('public-profiles' == $slug ? 'active' : '') ?>" href="<?= base_url('admin/public-profiles') ?>"><span class="nav-icon"><i class="bi bi-people"></i></span><span class="nav-text">Staff’s Profiles</span></a></li>
             <!-- BUSINESS -->
             <li class="nav-heading"><span>Businesses</span></li>

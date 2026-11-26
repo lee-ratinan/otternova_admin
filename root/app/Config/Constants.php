@@ -105,3 +105,5 @@ define('EMAIL_LOG_DEPARTMENTS', ['EXE', 'CXD', 'ENG']);
 // ... and that may read the Terms of Service and Privacy Policy versions and who accepted them (the API checks the
 // same list); only the Executive Office (EXECUTIVE_DEPARTMENT) may publish or cancel a version
 define('LEGAL_DEPARTMENTS', ['EXE', 'CXD']);
+// ... and that may view the org chart, the staff's reporting lines (the API checks the same list)
+define('ORG_CHART_DEPARTMENTS', ['EXE', 'HRD']);
