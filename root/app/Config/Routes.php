@@ -88,6 +88,7 @@ $routes->group('admin/accounts/salary', ['filter' => ['auth', 'department:EXE']]
 // (MODERATION_REMOVE_DEPARTMENTS); the API checks the same. See App\Controllers\ClientBusinesses::moderate()
 $routes->group('admin/clients/businesses', ['filter' => ['auth', 'department:EXE,CXD']], static function($routes) {
     $routes->post('moderate', 'ClientBusinesses::moderate');
+    $routes->post('report', 'ClientBusinesses::resolveReport'); // a mart visitor's report: new, spam, dismissed or actioned
 });
 $routes->group('admin/clients/businesses', ['filter' => ['auth', 'department:EXE']], static function($routes) {
     $routes->post('moderate/remove', 'ClientBusinesses::moderateRemove');

@@ -7,6 +7,7 @@
  * @var array $staff          {rows, error}: rows from v1/staff/businesses/staff
  * @var array $stores         {rows, error}: rows from v1/staff/businesses/stores
  * @var array $history        {rows, error}: rows from v1/staff/businesses/moderation, newest first
+ * @var array $reports        {rows, error}: rows from v1/staff/businesses/reports, the mart visitors' reports, newest first
  * @var array $artifactConfig Table Builder configuration of the products and services
  */
 
@@ -142,6 +143,9 @@ if ([] !== $translations) {
 <?php
 $staffRows   = (array) ($staff['rows'] ?? []);
 $historyRows = (array) ($history['rows'] ?? []);
+$reportRows  = (array) ($reports['rows'] ?? []);
+$openReports = count(array_filter($reportRows, static fn (array $r): bool => 'N' === ($r['report_status'] ?? '')));
+$canResolve  = inDepartment(MODERATION_DEPARTMENTS);
 $slugOf      = (string) ($b['business_slug'] ?? '');
 $reviewOf    = (string) ($b['review_status'] ?? 'U');
 $moderatedAs = (string) ($b['moderation_status'] ?? 'N');
@@ -165,6 +169,7 @@ $tabs = [
     'stores'   => ['Stores', 'bi-shop', count($storeRows)],
     'products' => ['Products & Services', 'bi-box-seam', null],
     'history'  => ['Moderation History', 'bi-clock-history', count($historyRows)],
+    'reports'  => ['Reports', 'bi-flag', $openReports],
 ];
 ?>
 <?= $this->section('content') ?>
@@ -212,6 +217,9 @@ $tabs = [
                                     <div class="col-sm-10 offset-sm-2">
                                         <?= CB::moderationButtons('business', '', 'this business', $reviewOf, $moderatedAs) ?>
                                         <a class="btn btn-link px-0" href="#history" data-show-tab="history">See the history <i class="bi bi-arrow-right"></i></a>
+                                        <?php if ($openReports > 0): ?>
+                                            <a class="btn btn-link text-warning px-0 ms-3" href="#reports" data-show-tab="reports"><i class="bi bi-flag me-1"></i><?= $openReports ?> open report<?= 1 === $openReports ? '' : 's' ?></a>
+                                        <?php endif ?>
                                     </div>
                                 </div>
                             </div>
@@ -394,9 +402,145 @@ $tabs = [
                     </div>
                 </div>
             </div>
+
+            <div class="tab-pane fade" id="pane-reports" role="tabpanel" aria-labelledby="tab-reports">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title">Reports from Visitors</h5>
+                        <p class="text-secondary mb-0">What visitors to the marketplace reported about the business or its items, newest first. The business is never told.
+                            Reports about who the business declared it welcomes (LGBTQ+, naturist, adults only) are filtered as spam, except child-safety ones.
+                            Act on a report with the moderation buttons, then mark it here.</p>
+                    </div>
+                    <div class="card-body">
+                        <?= $loadError($reports['error'] ?? null) ?>
+                        <?php if (null === ($reports['error'] ?? null) && [] === $reportRows): ?>
+                            <p class="text-secondary mb-0">No one has reported this business.</p>
+                        <?php elseif ([] !== $reportRows): ?>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle" id="reportsTable">
+                                    <thead>
+                                    <tr><th>When</th><th>About</th><th>Reason</th><th>Details</th><th>Reporter</th><th>Status</th><th>Reviewed</th><?php if ($canResolve): ?><th></th><?php endif ?></tr>
+                                    </thead>
+                                    <tbody>
+                                    <?php foreach ($reportRows as $report):
+                                        $status = (string) ($report['report_status'] ?? 'N');
+                                        ?>
+                                        <tr data-report="<?= esc((string) $report['public_id'], 'attr') ?>"<?= 'CHILD_SAFETY' === ($report['reason_code'] ?? '') && 'N' === $status ? ' class="table-danger"' : '' ?>>
+                                            <td class="text-nowrap"><?= B::time($report['created_at'] ?? null) ?></td>
+                                            <td><?= empty($report['artifact_public_id'])
+                                                    ? '<span class="text-secondary">The business</span>'
+                                                    : '<a href="' . esc($artifactUrl((string) $report['artifact_public_id']), 'attr') . '">' . esc((string) ($report['artifact_name'] ?? '')) . '</a>' ?></td>
+                                            <td><?= $enum(CB::REPORT_REASONS, $report['reason_code'] ?? null) ?></td>
+                                            <td style="max-width: 28rem;"><?= $long($report['details'] ?? null) ?></td>
+                                            <td>
+                                                <?= $text($report['reporter_email'] ?? null) ?>
+                                                <div class="small text-secondary" title="Reports with the same sender came from one address">Sender <?= esc((string) ($report['sender_key'] ?? '')) ?> · <?= esc((string) ($report['locale'] ?? '')) ?></div>
+                                            </td>
+                                            <td>
+                                                <?= B::badge(CB::REPORT_STATUSES, $status) ?>
+                                                <?php if (! empty($report['filter_reason'])): ?>
+                                                    <div class="small text-secondary"><?= esc(CB::REPORT_FILTERS[$report['filter_reason']] ?? (string) $report['filter_reason']) ?></div>
+                                                <?php endif ?>
+                                            </td>
+                                            <td>
+                                                <?php if (! empty($report['reviewed_at'])): ?>
+                                                    <?= $text($report['reviewed_by_name'] ?? null) ?>
+                                                    <div class="small text-secondary"><?= B::time($report['reviewed_at']) ?></div>
+                                                    <?php if (! empty($report['staff_note'])): ?><div class="small"><?= $long($report['staff_note']) ?></div><?php endif ?>
+                                                <?php else: ?>
+                                                    <?= $none ?>
+                                                <?php endif ?>
+                                            </td>
+                                            <?php if ($canResolve): ?>
+                                                <td class="text-nowrap">
+                                                    <?php foreach (['A' => ['Actioned', 'btn-outline-success', 'bi-check2-circle'], 'D' => ['Dismiss', 'btn-outline-secondary', 'bi-x-circle'],
+                                                                       'S' => ['Spam', 'btn-outline-dark', 'bi-trash3'], 'N' => ['Reopen', 'btn-outline-warning', 'bi-arrow-counterclockwise']] as $to => [$label, $class, $icon]):
+                                                        if ($to === $status) {
+                                                            continue;
+                                                        } ?>
+                                                        <button type="button" class="btn btn-sm <?= $class ?> me-1 mb-1" data-report-resolve="<?= $to ?>"
+                                                                data-public-id="<?= esc((string) $report['public_id'], 'attr') ?>" data-label="<?= esc($label, 'attr') ?>"><i class="bi <?= $icon ?> me-1"></i><?= $label ?></button>
+                                                    <?php endforeach ?>
+                                                </td>
+                                            <?php endif ?>
+                                        </tr>
+                                    <?php endforeach ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php endif ?>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 
+<?php if ($canResolve): ?>
+<div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportModalTitle" aria-hidden="true">
+    <div class="modal-dialog">
+        <form class="modal-content" id="reportForm" novalidate>
+            <?= csrf_field() ?>
+            <input type="hidden" name="public_id" value="">
+            <input type="hidden" name="report_status" value="">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reportModalTitle">Mark the report</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger d-none" id="reportError" role="alert"></div>
+                <label class="form-label" for="reportNote">Note for the staff <span class="text-secondary">(optional)</span></label>
+                <textarea class="form-control" id="reportNote" name="staff_note" rows="3" maxlength="2000" placeholder="What was done, or why nothing was"></textarea>
+                <div class="invalid-feedback" data-error="staff_note"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="reportSubmit">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () { // jQuery and Bootstrap load after the content
+        const url      = <?= json_encode(base_url('admin/clients/businesses/report')) ?>;
+        const modal    = bootstrap.Modal.getOrCreateInstance(document.getElementById('reportModal'));
+        const form     = document.getElementById('reportForm');
+        const submit   = document.getElementById('reportSubmit');
+        const errorBox = document.getElementById('reportError');
+        document.addEventListener('click', function (event) {
+            const button = event.target.closest('[data-report-resolve]');
+            if (!button) return;
+            form.reset();
+            errorBox.classList.add('d-none');
+            form.elements.staff_note.classList.remove('is-invalid');
+            form.elements.public_id.value     = button.dataset.publicId;
+            form.elements.report_status.value = button.dataset.reportResolve;
+            document.getElementById('reportModalTitle').textContent = button.dataset.label;
+            submit.textContent = button.dataset.label;
+            modal.show();
+        });
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+            submit.disabled = true;
+            $.ajax({url: url, method: 'POST', data: $(form).serialize(), dataType: 'json'})
+                .done(function (body) {
+                    modal.hide();
+                    if (window.toastr) toastr.success(body.message);
+                    setTimeout(function () { location.reload(); }, 600);
+                })
+                .fail(function (xhr) {
+                    const body = xhr.responseJSON || {};
+                    errorBox.textContent = body.message || 'Could not save. Please try again.';
+                    errorBox.classList.remove('d-none');
+                    if ((body.errors || {}).staff_note) {
+                        form.elements.staff_note.classList.add('is-invalid');
+                        form.querySelector('[data-error="staff_note"]').textContent = body.errors.staff_note;
+                    }
+                })
+                .always(function () { submit.disabled = false; });
+        });
+    });
+</script>
+<?php endif ?>
 <?= view('admin_moderation_modal', ['businessSlug' => $slugOf]) ?>
 <?= lb_script($artifactConfig) ?>
 <script>

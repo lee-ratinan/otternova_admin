@@ -81,6 +81,34 @@ class ClientBusinesses extends BaseController
         'PRICING'               => 'Unfair or deceptive pricing',
         'OTHER'                 => 'Other',
     ];
+    /** moderation_report.report_status: a mart visitor's report of the business or its product or service */
+    public const REPORT_STATUSES = [
+        'N' => ['label' => 'New', 'class' => 'bg-warning text-dark'],
+        'S' => ['label' => 'Filtered as spam', 'class' => 'bg-light text-dark border'],
+        'D' => ['label' => 'Dismissed', 'class' => 'bg-secondary'],
+        'A' => ['label' => 'Actioned', 'class' => 'bg-success'],
+    ];
+    /** moderation_report.reason_code: what the visitor reported */
+    public const REPORT_REASONS = [
+        'PROHIBITED'            => 'Prohibited or illegal goods or services',
+        'SCAM'                  => 'Scam or fraud',
+        'MISLEADING'            => 'Misleading information',
+        'INTELLECTUAL_PROPERTY' => 'Copyright or trademark infringement',
+        'OFFENSIVE'             => 'Offensive or hateful content',
+        'CHILD_SAFETY'          => 'Child safety',
+        'OTHER'                 => 'Other',
+    ];
+    /** moderation_report.filter_reason: why the API filtered a report as spam */
+    public const REPORT_FILTERS = [
+        'audience_keyword' => 'About who the business declared it welcomes (LGBTQ+, naturist or adults only)',
+        'duplicate'        => 'The same report again from the same sender',
+        'link_in_name'     => 'Spam: a link',
+        'repeated_name'    => 'Spam',
+        'markup_link'      => 'Spam: a link',
+        'too_many_links'   => 'Spam: too many links',
+        'spam_keyword'     => 'Spam: spam words',
+    ];
+
     /** The actions MODERATION_DEPARTMENTS take through moderate(); remove goes through moderateRemove() */
     private const MODERATE_ACTIONS = ['approve', 'flag', 'block', 'unblock'];
 
@@ -131,6 +159,7 @@ class ClientBusinesses extends BaseController
             $row['subscription_status'] = $row['subscription_status'] ?? self::NO_SUBSCRIPTION;
             $row['plan_code']           = (string) ($row['plan_code'] ?? '');
             $row['artifacts_to_review'] = (int) ($row['artifacts_to_review'] ?? 0);
+            $row['open_reports']        = (int) ($row['open_reports'] ?? 0);
             return $row;
         }, (array) ($body['data']['rows'] ?? []));
 
@@ -172,6 +201,7 @@ class ClientBusinesses extends BaseController
             'staff'          => $tab('v1/staff/businesses/staff'),
             'stores'         => $tab('v1/staff/businesses/stores'),
             'history'        => $tab('v1/staff/businesses/moderation'),
+            'reports'        => $tab('v1/staff/businesses/reports'),
             'artifactConfig' => $this->artifactListConfig($slug),
         ]);
     }
@@ -273,6 +303,28 @@ class ClientBusinesses extends BaseController
     }
 
     /**
+     * Mark a mart visitor's report new, filtered as spam, dismissed or actioned, with a note: the form of the report
+     * dialog (public_id, report_status, staff_note) forwarded to LINK_INTERNAL_API v1/staff/reports/resolve;
+     * MODERATION_DEPARTMENTS only (Config\Routes). JSON { status, message, errors, data } with the API's status code
+     * @return ResponseInterface
+     */
+    public function resolveReport(): ResponseInterface
+    {
+        $payload = [];
+        foreach (['public_id', 'report_status', 'staff_note'] as $field) {
+            $payload[$field] = trim((string) $this->request->getPost($field));
+        }
+        [$code, $body] = $this->callApi('v1/staff/reports/resolve', $payload);
+
+        return $this->response->setStatusCode($code)->setJSON([
+            'status'  => (string) ($body['status'] ?? 'error'),
+            'message' => (string) ($body['message'] ?? 'Could not save. Please try again.'),
+            'errors'  => (array) ($body['errors'] ?? []),
+            'data'    => $body['data'] ?? null,
+        ]);
+    }
+
+    /**
      * The buttons of the actions the signed-in staff member may take on a subject as it stands, for the moderation dialog
      * (admin_moderation_modal); none for a removed one
      * @param string      $subject           business, artifact or variant
@@ -352,6 +404,7 @@ class ClientBusinesses extends BaseController
                 self::column('review_status', 'Review', ['type' => 'badge', 'badges' => self::REVIEW_STATUSES]),
                 self::column('moderation_status', 'Moderation', ['type' => 'badge', 'badges' => self::MODERATION_STATUSES]),
                 self::column('artifacts_to_review', 'Items to Re-review', ['type' => 'number', 'class' => 'text-end']),
+                self::column('open_reports', 'Open Reports', ['type' => 'number', 'class' => 'text-end']),
                 self::column('created_at', 'Created', ['type' => 'datetime']),
             ],
             'filters'     => [
@@ -361,6 +414,7 @@ class ClientBusinesses extends BaseController
                 ['name' => 'review_status', 'type' => 'select', 'label' => 'Review', 'options' => $labels(self::REVIEW_STATUSES)],
                 ['name' => 'moderation_status', 'type' => 'select', 'label' => 'Moderation', 'options' => $labels(self::MODERATION_STATUSES)],
                 ['name' => 'awaiting_review', 'type' => 'select', 'label' => 'Awaiting Re-review', 'options' => ['Y' => 'The business or any of its items']],
+                ['name' => 'open_reports', 'type' => 'select', 'label' => 'Open Reports', 'options' => ['Y' => 'A visitor report awaits review']],
                 ['name' => 'country_code', 'type' => 'select', 'label' => 'Country', 'options' => listSupportedCountries()],
             ],
             'order'       => [],
