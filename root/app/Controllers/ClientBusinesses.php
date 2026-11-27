@@ -49,6 +49,41 @@ class ClientBusinesses extends BaseController
         'B' => ['label' => 'Blocked', 'class' => 'bg-danger'],
         'S' => ['label' => 'Suspended', 'class' => 'bg-secondary'],
     ];
+    /** review_status of a business or an artifact (App\Models\ModerationEventModel of the API) */
+    public const REVIEW_STATUSES = [
+        'U' => ['label' => 'Unreviewed', 'class' => 'bg-light text-dark border'],
+        'A' => ['label' => 'Approved', 'class' => 'bg-success'],
+        'F' => ['label' => 'Flagged', 'class' => 'bg-warning text-dark'],
+        'P' => ['label' => 'Awaiting re-review', 'class' => 'bg-info text-dark'],
+    ];
+    /** moderation_status of a business, an artifact or a variant */
+    public const MODERATION_STATUSES = [
+        'N' => ['label' => 'Not blocked', 'class' => 'bg-light text-dark border'],
+        'B' => ['label' => 'Blocked', 'class' => 'bg-danger'],
+        'R' => ['label' => 'Removed', 'class' => 'bg-dark'],
+    ];
+    /** moderation_event.event_action */
+    public const MODERATION_ACTIONS = [
+        'AP' => ['label' => 'Approved', 'class' => 'bg-success'],
+        'FL' => ['label' => 'Flagged', 'class' => 'bg-warning text-dark'],
+        'BL' => ['label' => 'Blocked', 'class' => 'bg-danger'],
+        'UB' => ['label' => 'Unblocked', 'class' => 'bg-primary'],
+        'RM' => ['label' => 'Removed', 'class' => 'bg-dark'],
+        'RS' => ['label' => 'Changed by the business', 'class' => 'bg-info text-dark'],
+    ];
+    /** moderation_event.reason_code */
+    public const MODERATION_REASONS = [
+        'PROHIBITED'            => 'Prohibited or illegal goods or services',
+        'MISLEADING'            => 'Misleading or false information',
+        'INTELLECTUAL_PROPERTY' => 'Copyright or trademark infringement',
+        'AUDIENCE'              => 'Wrong audience or age restriction',
+        'BUSINESS_TYPE'         => 'Does not match the declared business type',
+        'PRICING'               => 'Unfair or deceptive pricing',
+        'OTHER'                 => 'Other',
+    ];
+    /** The actions MODERATION_DEPARTMENTS take through moderate(); remove goes through moderateRemove() */
+    private const MODERATE_ACTIONS = ['approve', 'flag', 'block', 'unblock'];
+
     /** ClientBilling::SUBSCRIPTION_STATUSES, and NONE for a business that never subscribed */
     public const NO_SUBSCRIPTION = 'NONE';
 
@@ -95,6 +130,7 @@ class ClientBusinesses extends BaseController
             $row['country']             = $countries[$row['country_code'] ?? ''] ?? (string) ($row['country_code'] ?? '');
             $row['subscription_status'] = $row['subscription_status'] ?? self::NO_SUBSCRIPTION;
             $row['plan_code']           = (string) ($row['plan_code'] ?? '');
+            $row['artifacts_to_review'] = (int) ($row['artifacts_to_review'] ?? 0);
             return $row;
         }, (array) ($body['data']['rows'] ?? []));
 
@@ -135,6 +171,7 @@ class ClientBusinesses extends BaseController
             'business'       => $business,
             'staff'          => $tab('v1/staff/businesses/staff'),
             'stores'         => $tab('v1/staff/businesses/stores'),
+            'history'        => $tab('v1/staff/businesses/moderation'),
             'artifactConfig' => $this->artifactListConfig($slug),
         ]);
     }
@@ -204,9 +241,76 @@ class ClientBusinesses extends BaseController
                 $businessUrl                          => (string) ($business['business_name'] ?? $slug),
                 $businessUrl . '#products'            => 'Products & Services',
             ],
-            'currency'    => (string) ($business['currency_code'] ?? ''),
-            'detail'      => $detail,
+            'currency'     => (string) ($business['currency_code'] ?? ''),
+            'detail'       => $detail,
+            'businessSlug' => $slug,
         ]);
+    }
+
+    /**
+     * Approve, flag, block or unblock a business, one of its products or services, or a variant: the form of the
+     * moderation dialog (action, business_slug, subject, public_id, reason_code, client_message, internal_note)
+     * forwarded to LINK_INTERNAL_API v1/staff/moderation/{action}; MODERATION_DEPARTMENTS only (Config\Routes).
+     * JSON { status, message, errors, data } with the API's status code
+     * @return ResponseInterface
+     */
+    public function moderate(): ResponseInterface
+    {
+        $action = (string) $this->request->getPost('action');
+        if (! in_array($action, self::MODERATE_ACTIONS, true)) {
+            return $this->response->setStatusCode(422)->setJSON(['status' => 'error', 'message' => 'Choose what to do.']);
+        }
+        return $this->forwardModeration($action);
+    }
+
+    /**
+     * Remove a business, a product or service, or a variant for good: as moderate(), for MODERATION_REMOVE_DEPARTMENTS only
+     * @return ResponseInterface
+     */
+    public function moderateRemove(): ResponseInterface
+    {
+        return $this->forwardModeration('remove');
+    }
+
+    /**
+     * The buttons of the actions the signed-in staff member may take on a subject as it stands, for the moderation dialog
+     * (admin_moderation_modal); none for a removed one
+     * @param string      $subject           business, artifact or variant
+     * @param string      $publicId          Of the artifact or variant; '' for the business
+     * @param string      $label             What the dialog says it acts on
+     * @param string|null $reviewStatus      Null for a variant
+     * @param string      $moderationStatus
+     * @param bool        $small
+     * @return string
+     */
+    public static function moderationButtons(string $subject, string $publicId, string $label, ?string $reviewStatus, string $moderationStatus, bool $small = false): string
+    {
+        helper('auth');
+        if ('R' === $moderationStatus || ! inDepartment(MODERATION_DEPARTMENTS)) {
+            return '';
+        }
+        $buttons = [];
+        if ('B' === $moderationStatus) {
+            $buttons['unblock'] = ['Unblock', 'btn-outline-primary', 'bi-unlock'];
+        } else {
+            if (null !== $reviewStatus && 'A' !== $reviewStatus) {
+                $buttons['approve'] = ['Approve', 'btn-outline-success', 'bi-check-circle'];
+            }
+            if (null !== $reviewStatus && 'F' !== $reviewStatus) {
+                $buttons['flag'] = ['Flag', 'btn-outline-warning', 'bi-flag'];
+            }
+            $buttons['block'] = ['Block', 'btn-outline-danger', 'bi-slash-circle'];
+        }
+        if (inDepartment(MODERATION_REMOVE_DEPARTMENTS)) {
+            $buttons['remove'] = ['Remove', 'btn-outline-dark', 'bi-trash'];
+        }
+        $html = '';
+        foreach ($buttons as $action => [$text, $class, $icon]) {
+            $html .= '<button type="button" class="btn ' . ($small ? 'btn-sm ' : '') . $class . ' me-1 mb-1" data-moderate="' . $action . '"'
+                . ' data-subject="' . esc($subject, 'attr') . '" data-public-id="' . esc($publicId, 'attr') . '" data-label="' . esc($label, 'attr') . '">'
+                . '<i class="bi ' . $icon . ' me-1"></i>' . $text . '</button>';
+        }
+        return $html;
     }
 
     /**
@@ -245,12 +349,18 @@ class ClientBusinesses extends BaseController
                 self::column('wht_status', 'Withholding', ['type' => 'badge', 'badges' => ClientBilling::WHT_STATUSES]),
                 self::column('subscription_status', 'Subscription', ['type' => 'badge', 'badges' => self::subscriptionStatuses()]),
                 self::column('plan_code', 'Plan'),
+                self::column('review_status', 'Review', ['type' => 'badge', 'badges' => self::REVIEW_STATUSES]),
+                self::column('moderation_status', 'Moderation', ['type' => 'badge', 'badges' => self::MODERATION_STATUSES]),
+                self::column('artifacts_to_review', 'Items to Re-review', ['type' => 'number', 'class' => 'text-end']),
                 self::column('created_at', 'Created', ['type' => 'datetime']),
             ],
             'filters'     => [
                 ['name' => 'is_business_open', 'type' => 'select', 'label' => 'Marketplace', 'options' => $labels(self::OPEN_STATUSES)],
                 ['name' => 'wht_status', 'type' => 'select', 'label' => 'Withholding', 'options' => $labels(ClientBilling::WHT_STATUSES)],
                 ['name' => 'subscription_status', 'type' => 'select', 'label' => 'Subscription', 'options' => $labels(self::subscriptionStatuses())],
+                ['name' => 'review_status', 'type' => 'select', 'label' => 'Review', 'options' => $labels(self::REVIEW_STATUSES)],
+                ['name' => 'moderation_status', 'type' => 'select', 'label' => 'Moderation', 'options' => $labels(self::MODERATION_STATUSES)],
+                ['name' => 'awaiting_review', 'type' => 'select', 'label' => 'Awaiting Re-review', 'options' => ['Y' => 'The business or any of its items']],
                 ['name' => 'country_code', 'type' => 'select', 'label' => 'Country', 'options' => listSupportedCountries()],
             ],
             'order'       => [],
@@ -282,6 +392,8 @@ class ClientBusinesses extends BaseController
                 self::column('artifact_type', 'Type', ['type' => 'badge', 'badges' => self::ARTIFACT_TYPES]),
                 self::column('category_name', 'Category'),
                 self::column('artifact_status', 'Status', ['type' => 'badge', 'badges' => self::ARTIFACT_STATUSES]),
+                self::column('review_status', 'Review', ['type' => 'badge', 'badges' => self::REVIEW_STATUSES]),
+                self::column('moderation_status', 'Moderation', ['type' => 'badge', 'badges' => self::MODERATION_STATUSES]),
                 self::column('variant_count', 'Variants', ['type' => 'number', 'class' => 'text-end']),
                 self::column('price_active_lowest', 'From', ['type' => 'number', 'decimals' => 2, 'class' => 'text-end']),
                 self::column('rating_average', 'Rating', ['type' => 'number', 'decimals' => 2, 'class' => 'text-end']),
@@ -290,6 +402,8 @@ class ClientBusinesses extends BaseController
             'filters'     => [
                 ['name' => 'artifact_type', 'type' => 'select', 'label' => 'Type', 'options' => $labels(self::ARTIFACT_TYPES)],
                 ['name' => 'artifact_status', 'type' => 'select', 'label' => 'Status', 'options' => $labels(self::ARTIFACT_STATUSES)],
+                ['name' => 'review_status', 'type' => 'select', 'label' => 'Review', 'options' => $labels(self::REVIEW_STATUSES)],
+                ['name' => 'moderation_status', 'type' => 'select', 'label' => 'Moderation', 'options' => $labels(self::MODERATION_STATUSES)],
             ],
             'order'       => [],
             'page_length' => 25,
@@ -305,6 +419,27 @@ class ClientBusinesses extends BaseController
     private static function column(string $data, string $title, array $extra = []): array
     {
         return $extra + ['data' => $data, 'db' => $data, 'title' => $title, 'orderable' => false, 'searchable' => false];
+    }
+
+    /**
+     * moderate() and moderateRemove()
+     * @param string $action
+     * @return ResponseInterface
+     */
+    private function forwardModeration(string $action): ResponseInterface
+    {
+        $payload = [];
+        foreach (['business_slug', 'subject', 'public_id', 'reason_code', 'client_message', 'internal_note'] as $field) {
+            $payload[$field] = trim((string) $this->request->getPost($field));
+        }
+        [$code, $body] = $this->callApi('v1/staff/moderation/' . $action, $payload);
+
+        return $this->response->setStatusCode($code)->setJSON([
+            'status'  => (string) ($body['status'] ?? 'error'),
+            'message' => (string) ($body['message'] ?? 'Could not save. Please try again.'),
+            'errors'  => (array) ($body['errors'] ?? []),
+            'data'    => $body['data'] ?? null,
+        ]);
     }
 
     /**

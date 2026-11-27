@@ -3,7 +3,8 @@
  * One product or service of a business, with its names in other languages, its variants (their attribute values and
  * stock per store) and its images; see App\Controllers\ClientBusinesses::artifactView()
  * @var array  $detail   From LINK_INTERNAL_API v1/staff/businesses/artifact: {artifact, variants, images}
- * @var string $currency The business's currency_code, for the prices
+ * @var string $currency     The business's currency_code, for the prices
+ * @var string $businessSlug For the moderation dialog
  */
 
 use App\Controllers\ClientBilling as B;
@@ -46,10 +47,44 @@ $details = [
     'Updated'     => B::time($a['updated_at'] ?? null),
 ];
 $translations = (array) ($a['translations'] ?? []);
+$reviewOf     = (string) ($a['review_status'] ?? 'U');
+$moderatedAs  = (string) ($a['moderation_status'] ?? 'N');
+$notice       = (array) ($a['moderation_notice'] ?? []);
+$what         = $service ? 'this service' : 'this product';
+$reasons      = CB::MODERATION_REASONS;
 ?>
 <?= $this->section('content') ?>
     <section class="section">
         <div class="row g-4">
+            <div class="col-12">
+                <div class="card<?= 'N' === $moderatedAs ? '' : ' border-danger' ?>">
+                    <div class="card-header"><h5 class="card-title">Review &amp; Moderation</h5></div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-sm-2 text-sm-end text-secondary">Review</div>
+                            <div class="col-sm-10"><?= B::badge(CB::REVIEW_STATUSES, $reviewOf) ?></div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-sm-2 text-sm-end text-secondary">Moderation</div>
+                            <div class="col-sm-10"><?= B::badge(CB::MODERATION_STATUSES, $moderatedAs) ?></div>
+                        </div>
+                        <?php if ([] !== $notice): ?>
+                            <div class="row mb-3">
+                                <div class="col-sm-2 text-sm-end text-secondary">Told the Business</div>
+                                <div class="col-sm-10">
+                                    <?= B::badge(CB::MODERATION_ACTIONS, $notice['event_action'] ?? null) ?>
+                                    <span class="text-secondary ms-1"><?= esc($reasons[$notice['reason_code'] ?? ''] ?? (string) ($notice['reason_code'] ?? '')) ?> · <?= B::time($notice['created_at'] ?? null) ?></span>
+                                    <div class="mt-1"><?= $long($notice['client_message'] ?? null) ?></div>
+                                </div>
+                            </div>
+                        <?php endif ?>
+                        <div class="row">
+                            <div class="col-sm-10 offset-sm-2"><?= CB::moderationButtons('artifact', (string) ($a['public_id'] ?? ''), $what, $reviewOf, $moderatedAs) ?></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="col-12 col-xl-6">
                 <div class="card h-100">
                     <div class="card-header"><h5 class="card-title"><?= $service ? 'Service' : 'Product' ?></h5></div>
@@ -103,6 +138,7 @@ $translations = (array) ($a['translations'] ?? []);
                                         <?php else: ?>
                                             <th>Barcode</th><th class="text-end">Weight</th><th>Stock</th>
                                         <?php endif ?>
+                                        <th>Moderation</th>
                                     </tr>
                                     </thead>
                                     <tbody>
@@ -128,6 +164,10 @@ $translations = (array) ($a['translations'] ?? []);
                                                 <td class="text-end"><?= null === ($v['weight_grams'] ?? null) ? $none : esc(number_format((int) $v['weight_grams']) . ' g') ?></td>
                                                 <td><?= [] === $stock ? $none : implode('<br>', $stock) ?></td>
                                             <?php endif ?>
+                                            <td>
+                                                <div class="mb-1"><?= B::badge(CB::MODERATION_STATUSES, $v['moderation_status'] ?? 'N') ?></div>
+                                                <?= CB::moderationButtons('variant', (string) ($v['public_id'] ?? ''), 'variant ' . ($v['sku'] ?? $v['public_id'] ?? ''), null, (string) ($v['moderation_status'] ?? 'N'), true) ?>
+                                            </td>
                                         </tr>
                                     <?php endforeach ?>
                                     </tbody>
@@ -165,4 +205,5 @@ $translations = (array) ($a['translations'] ?? []);
             </div>
         </div>
     </section>
+<?= view('admin_moderation_modal', ['businessSlug' => $businessSlug]) ?>
 <?= $this->endSection() ?>

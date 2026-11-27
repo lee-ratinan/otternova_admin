@@ -83,6 +83,16 @@ $routes->group('admin/accounts/salary', ['filter' => ['auth', 'department:EXE']]
     $routes->post('pay-account', 'StaffSalaries::payAccount');
 });
 
+// Review and moderation of a business, its products and services and their variants: approve, flag, block and unblock
+// for the Executive Office and Client Experience (MODERATION_DEPARTMENTS), removing for good for the Executive Office only
+// (MODERATION_REMOVE_DEPARTMENTS); the API checks the same. See App\Controllers\ClientBusinesses::moderate()
+$routes->group('admin/clients/businesses', ['filter' => ['auth', 'department:EXE,CXD']], static function($routes) {
+    $routes->post('moderate', 'ClientBusinesses::moderate');
+});
+$routes->group('admin/clients/businesses', ['filter' => ['auth', 'department:EXE']], static function($routes) {
+    $routes->post('moderate/remove', 'ClientBusinesses::moderateRemove');
+});
+
 // The org chart, the staff's reporting lines: the Executive Office and Human Resources only (ORG_CHART_DEPARTMENTS;
 // the API checks the same); see App\Controllers\Admin::orgChart()
 $routes->group('admin', ['filter' => ['auth', 'department:EXE,HRD']], static function($routes) {

@@ -6,6 +6,7 @@
  *                            Executive Office and Finance
  * @var array $staff          {rows, error}: rows from v1/staff/businesses/staff
  * @var array $stores         {rows, error}: rows from v1/staff/businesses/stores
+ * @var array $history        {rows, error}: rows from v1/staff/businesses/moderation, newest first
  * @var array $artifactConfig Table Builder configuration of the products and services
  */
 
@@ -139,7 +140,20 @@ if ([] !== $translations) {
 }
 ?>
 <?php
-$staffRows = (array) ($staff['rows'] ?? []);
+$staffRows   = (array) ($staff['rows'] ?? []);
+$historyRows = (array) ($history['rows'] ?? []);
+$slugOf      = (string) ($b['business_slug'] ?? '');
+$reviewOf    = (string) ($b['review_status'] ?? 'U');
+$moderatedAs = (string) ($b['moderation_status'] ?? 'N');
+// what the business was last told about itself: its last flag, block or removal
+$notice = null;
+foreach ($historyRows as $event) {
+    if ('B' === ($event['subject_type'] ?? '') && in_array($event['event_action'] ?? '', ['FL', 'BL', 'RM'], true)) {
+        $notice = $event;
+        break;
+    }
+}
+$artifactUrl = static fn (string $publicId): string => base_url('admin/clients/businesses/view/' . rawurlencode($slugOf) . '/artifacts/' . rawurlencode($publicId));
 $storeRows = (array) ($stores['rows'] ?? []);
 $days      = [0 => 'Sunday', 1 => 'Monday', 2 => 'Tuesday', 3 => 'Wednesday', 4 => 'Thursday', 5 => 'Friday', 6 => 'Saturday'];
 $names     = static fn (array $list): string => [] === $list ? '<span class="text-muted">&mdash;</span>' : implode('<br>', array_map(static fn ($n): string => esc((string) $n), $list));
@@ -150,6 +164,7 @@ $tabs = [
     'staff'    => ['Staff', 'bi-people', count($staffRows)],
     'stores'   => ['Stores', 'bi-shop', count($storeRows)],
     'products' => ['Products & Services', 'bi-box-seam', null],
+    'history'  => ['Moderation History', 'bi-clock-history', count($historyRows)],
 ];
 ?>
 <?= $this->section('content') ?>
@@ -169,6 +184,39 @@ $tabs = [
         <div class="tab-content">
             <div class="tab-pane fade show active" id="pane-overview" role="tabpanel" aria-labelledby="tab-overview">
                 <div class="row g-4">
+                    <div class="col-12">
+                        <div class="card<?= 'N' === $moderatedAs ? '' : ' border-danger' ?>">
+                            <div class="card-header">
+                                <h5 class="card-title">Review &amp; Moderation</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row mb-3">
+                                    <div class="col-sm-2 text-sm-end text-secondary">Review</div>
+                                    <div class="col-sm-10"><?= B::badge(CB::REVIEW_STATUSES, $reviewOf) ?></div>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-sm-2 text-sm-end text-secondary">Moderation</div>
+                                    <div class="col-sm-10"><?= B::badge(CB::MODERATION_STATUSES, $moderatedAs) ?></div>
+                                </div>
+                                <?php if (null !== $notice): ?>
+                                    <div class="row mb-3">
+                                        <div class="col-sm-2 text-sm-end text-secondary">Told the Business</div>
+                                        <div class="col-sm-10">
+                                            <?= B::badge(CB::MODERATION_ACTIONS, $notice['event_action']) ?>
+                                            <span class="text-secondary ms-1"><?= esc(CB::MODERATION_REASONS[$notice['reason_code'] ?? ''] ?? (string) ($notice['reason_code'] ?? '')) ?> · <?= B::time($notice['created_at'] ?? null) ?></span>
+                                            <div class="mt-1"><?= $long($notice['client_message'] ?? null) ?></div>
+                                        </div>
+                                    </div>
+                                <?php endif ?>
+                                <div class="row">
+                                    <div class="col-sm-10 offset-sm-2">
+                                        <?= CB::moderationButtons('business', '', 'this business', $reviewOf, $moderatedAs) ?>
+                                        <a class="btn btn-link px-0" href="#history" data-show-tab="history">See the history <i class="bi bi-arrow-right"></i></a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <?php foreach ($sections as $title => $rows): ?>
                         <div class="col-12 col-xl-6">
                             <div class="card h-100">
@@ -300,9 +348,56 @@ $tabs = [
             <div class="tab-pane fade" id="pane-products" role="tabpanel" aria-labelledby="tab-products">
                 <?= lb_render($artifactConfig) ?>
             </div>
+
+            <div class="tab-pane fade" id="pane-history" role="tabpanel" aria-labelledby="tab-history">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title">Moderation History</h5>
+                        <p class="text-secondary mb-0">Every review and moderation of the business and its items, and every change the business made to what was flagged, newest first</p>
+                    </div>
+                    <div class="card-body">
+                        <?= $loadError($history['error'] ?? null) ?>
+                        <?php if (null === ($history['error'] ?? null) && [] === $historyRows): ?>
+                            <p class="text-secondary mb-0">Nothing has been reviewed yet.</p>
+                        <?php elseif ([] !== $historyRows): ?>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle">
+                                    <thead>
+                                    <tr><th>When</th><th>What</th><th>Action</th><th>Reason</th><th>Message to the Business</th><th>Internal Note</th><th>By</th></tr>
+                                    </thead>
+                                    <tbody>
+                                    <?php foreach ($historyRows as $event):
+                                        $what = match ($event['subject_type'] ?? '') {
+                                            'A'     => '<a href="' . esc($artifactUrl((string) $event['artifact_public_id']), 'attr') . '">' . esc((string) ($event['artifact_name'] ?? '')) . '</a>',
+                                            'V'     => '<a href="' . esc($artifactUrl((string) $event['artifact_public_id']), 'attr') . '">' . esc((string) ($event['artifact_name'] ?? '')) . '</a>'
+                                                . ' <span class="text-secondary">· variant ' . esc((string) ($event['variant_sku'] ?? $event['variant_public_id'] ?? '')) . '</span>',
+                                            default => '<span class="text-secondary">The business</span>',
+                                        };
+                                        ?>
+                                        <tr>
+                                            <td class="text-nowrap"><?= B::time($event['created_at'] ?? null) ?></td>
+                                            <td><?= $what ?></td>
+                                            <td><?= B::badge(CB::MODERATION_ACTIONS, $event['event_action'] ?? null) ?></td>
+                                            <td><?= empty($event['reason_code']) ? $none : esc(CB::MODERATION_REASONS[$event['reason_code']] ?? (string) $event['reason_code']) ?></td>
+                                            <td><?= $long($event['client_message'] ?? null) ?></td>
+                                            <td><?= $long($event['internal_note'] ?? null) ?></td>
+                                            <td>
+                                                <?= $text($event['created_by_name'] ?? null) ?>
+                                                <?php if ('C' === ($event['created_by_type'] ?? null)): ?><span class="badge bg-light text-dark border ms-1">Business</span><?php endif ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php endif ?>
+                    </div>
+                </div>
+            </div>
         </div>
     </section>
 
+<?= view('admin_moderation_modal', ['businessSlug' => $slugOf]) ?>
 <?= lb_script($artifactConfig) ?>
 <script>
     // the tab in the URL's hash (#staff, #stores, #products) opens first, and each tab opened is put there, so a reload
@@ -317,8 +412,17 @@ $tabs = [
                 }
             });
         });
-        const wanted = document.querySelector('#businessTabs [data-tab="' + location.hash.slice(1) + '"]');
-        if (wanted) bootstrap.Tab.getOrCreateInstance(wanted).show();
+        const show = function (tab) {
+            const button = document.querySelector('#businessTabs [data-tab="' + tab + '"]');
+            if (button) bootstrap.Tab.getOrCreateInstance(button).show();
+        };
+        document.querySelectorAll('[data-show-tab]').forEach(function (link) {
+            link.addEventListener('click', function (event) {
+                event.preventDefault();
+                show(link.dataset.showTab);
+            });
+        });
+        show(location.hash.slice(1));
     });
 </script>
 <?= $this->endSection() ?>

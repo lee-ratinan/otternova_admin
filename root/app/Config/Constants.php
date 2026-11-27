@@ -107,3 +107,7 @@ define('EMAIL_LOG_DEPARTMENTS', ['EXE', 'CXD', 'ENG']);
 define('LEGAL_DEPARTMENTS', ['EXE', 'CXD']);
 // ... and that may view the org chart, the staff's reporting lines (the API checks the same list)
 define('ORG_CHART_DEPARTMENTS', ['EXE', 'HRD']);
+// ... and that may review the businesses, their products and services and their variants: approve, flag, block and
+// unblock them (the API checks the same list); only the Executive Office (MODERATION_REMOVE_DEPARTMENTS) removes for good
+define('MODERATION_DEPARTMENTS', ['EXE', 'CXD']);
+define('MODERATION_REMOVE_DEPARTMENTS', ['EXE']);
